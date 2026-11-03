@@ -19,12 +19,8 @@ struct OpenCodeUsageApp: App {
         }
 
         // Launching twice (login item plus a manual open) would show two menu bar
-        // items that refresh independently. Only the oldest instance survives.
-        if let bundleID = Bundle.main.bundleIdentifier {
-            let others = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID)
-            let me = ProcessInfo.processInfo.processIdentifier
-            if others.contains(where: { $0.processIdentifier < me }) { exit(0) }
-        }
+        // items that refresh independently. Only the first instance survives.
+        if !InstanceLock.acquire() { exit(0) }
     }
 
     var body: some Scene {
