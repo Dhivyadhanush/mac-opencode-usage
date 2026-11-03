@@ -2,7 +2,9 @@ import SwiftUI
 
 private func usageColor(_ pct: Double?, warning: Double, critical: Double) -> Color {
     guard let pct else { return .secondary }
-    if pct >= critical { return .red }
+    // Two independent steppers: if they are set the wrong way round the yellow
+    // state would never appear, so treat critical as the higher of the two.
+    if pct >= max(critical, warning) { return .red }
     if pct >= warning { return .yellow }
     return .primary
 }
@@ -199,6 +201,9 @@ struct PanelView: View {
             )
             if let meter = data.meters?.five {
                 detailRow("5h resets", reset(meter))
+                // In metered mode every other time above is a future reset, so
+                // without this row stale data would look fresh.
+                detailRow("Updated", clock.string(from: data.updatedAt) + " " + Usage.offset)
                 detailRow("Source", "console meter")
             } else {
                 // No console workspace linked: these are the edges of a rolling
@@ -333,6 +338,9 @@ struct SettingsView: View {
 
             // Menu bar apps have no other way out without Activity Monitor.
             HStack {
+                Text("v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?")")
+                    .font(.system(size: 9))
+                    .foregroundStyle(.secondary)
                 Spacer()
                 Button("Quit") { NSApplication.shared.terminate(nil) }
             }
