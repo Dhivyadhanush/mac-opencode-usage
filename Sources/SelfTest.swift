@@ -136,6 +136,13 @@ enum SelfTest {
               "docs name matches API id")
         check(Limits.normalize("Qwen3.8 Max (≤ 512K tokens)") == "qwen3-8-max", "variants share a key")
 
+        // The model list is labelled with docs display names while usage rows
+        // carry API ids; matching them by string equality showed "no usage" for
+        // every model, so pin the lookup that bridges the two.
+        check(Usage.spend(data, name: "DeepSeek V4.1 Flash")?.month == 50, "list finds spend by docs name")
+        check(Usage.spend(data, name: "deepseek-v4.1-flash")?.month == 50, "list finds spend by API id")
+        check(Usage.spend(data, name: "Nope") == nil, "list ignores unknown names")
+
         // The docs table is fetched, so parse a slice shaped like the real page.
         let fixture = """
         <PlanTabs id="go-pricing" value="go">

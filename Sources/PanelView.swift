@@ -266,7 +266,9 @@ struct PanelView: View {
         if showAllModels {
             VStack(spacing: 3) {
                 ForEach(names, id: \.self) { name in
-                    let model = data.models.first { $0.id == name }
+                    // The list shows docs display names ("DeepSeek V4.1 Flash")
+                    // while usage rows carry API ids ("deepseek-v4.1-flash").
+                    let model = Usage.spend(data, name: name)
                     let limit = Limits.value(model: name)
                     HStack(spacing: 6) {
                         Text(name).font(.system(size: 10))

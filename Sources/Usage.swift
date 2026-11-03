@@ -130,6 +130,15 @@ enum Usage {
         }
     }
 
+    // The model list is labelled with docs display names, the usage rows carry
+    // API ids, so match them through the same normalisation the limits table
+    // uses. Comparing the strings directly silently shows "no usage" for every
+    // model.
+    static func spend(_ data: UsageData, name: String) -> ModelUsage? {
+        let key = Limits.normalize(name)
+        return data.models.first { Limits.normalize($0.id) == key }
+    }
+
     static func top(_ data: UsageData?, _ period: Period) -> Top? {
         guard let data else { return nil }
         // The console's meter wins when there is one: its window boundary is the
@@ -456,6 +465,18 @@ enum Usage {
                 "  \(model.id) limit \(model.limit.map(money) ?? "unlimited") "
                     + "5h \(money(model.five)) week \(money(model.week)) month \(money(model.month))"
             )
+        }
+        // The panel's "All models" list is labelled with docs display names, so
+        // dump the same join: a docs name that fails to find its API id shows
+        // up here as a missing row instead of "no usage" in the UI.
+        let listed = Limits.models().compactMap { name -> String? in
+            guard let model = spend(data, name: name), model.month > 0 else { return nil }
+            let limit = Limits.value(model: name).map(money) ?? "-"
+            return "  \(name) \(money(model.month)) of \(limit)"
+        }
+        if !listed.isEmpty {
+            lines.append("model list rows with spend:")
+            lines.append(contentsOf: listed)
         }
         return lines.joined(separator: "\n")
     }
