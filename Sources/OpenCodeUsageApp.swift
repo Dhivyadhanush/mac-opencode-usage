@@ -60,9 +60,7 @@ struct OpenCodeUsageApp: App {
     private static func dump() -> Never {
         Task.detached {
             do {
-                let defaults = UserDefaults.standard
-                let org = defaults.string(forKey: "orgId") ?? ""
-                let data = try await Usage.fetch(orgId: org)
+                let data = try await Usage.fetch()
                 print(Usage.describe(data))
                 exit(0)
             } catch {

@@ -35,7 +35,7 @@ struct PanelView: View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 Text("OpenCode usage").font(.system(size: 16, weight: .bold))
-                Text("Go plan · all principals")
+                Text(store.data?.meters?.workspace.map { "\($0) · Go plan" } ?? "Go plan")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
             }
@@ -72,11 +72,11 @@ struct PanelView: View {
                 banner("Refresh failed; showing previous data.", detail: error)
             }
 
-            // A different plan, or a model we have no limit for, would otherwise
-            // look like a broken app: every percentage is a dash.
+            // A model newer than the table, or a Go Plus/Teams account, would
+            // otherwise look like a broken app: every percentage is a dash.
             if data.models.contains(where: { $0.month > 0 }) && Usage.top(data, .month) == nil {
                 banner("No spend limits for these models.",
-                       detail: "The built-in table covers go, go_plus and go_teams; this model is not in it, so percentages are unavailable. Spend and requests still update.")
+                       detail: "Only the Go plan table is built in, so this model has no percentage. Spend and requests still update.")
             }
 
             Divider()
@@ -215,20 +215,20 @@ struct PanelView: View {
         return clock.string(from: at) + " " + Usage.offset
     }
 
-    // Every model the plan covers, including ones with no spend this month —
+    // Every model in the Go table, including ones with no spend this month —
     // otherwise a model you have never touched is invisible. A plain button
     // rather than DisclosureGroup: that one never took clicks in a
     // MenuBarExtra window.
     @ViewBuilder
     private func allModels(_ data: UsageData) -> some View {
-        let names = Limits.models(plan: data.plan)
+        let names = Limits.models()
         Button {
             showAllModels.toggle()
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: showAllModels ? "chevron.down" : "chevron.right")
                     .font(.system(size: 9, weight: .bold))
-                Text("All \(names.count) models in \(data.plan)")
+                Text("All \(names.count) models")
                     .font(.system(size: 11, weight: .medium))
                 Spacer()
             }
@@ -240,7 +240,7 @@ struct PanelView: View {
             VStack(spacing: 3) {
                 ForEach(names, id: \.self) { name in
                     let model = data.models.first { $0.id == name }
-                    let limit = Limits.value(plan: data.plan, model: name)
+                    let limit = Limits.value(model: name)
                     HStack(spacing: 6) {
                         Text(name).font(.system(size: 10))
                         Spacer()
@@ -279,8 +279,6 @@ struct SettingsView: View {
     let store: Store
 
     @AppStorage("refreshMinutes") private var refreshMinutes = 10
-    @AppStorage("orgId") private var orgId = ""
-    @AppStorage("plan") private var plan = "go"
     @AppStorage("warning") private var warning = 80
     @AppStorage("critical") private var critical = 95
     @AppStorage("barFive") private var barFive = true
@@ -300,25 +298,6 @@ struct SettingsView: View {
                     .fixedSize()
             }
 
-            HStack(spacing: 8) {
-                Text("Plan")
-                Spacer()
-                Picker("", selection: $plan) {
-                    Text("Go").tag("go")
-                    Text("Go Plus").tag("go_plus")
-                    Text("Go Teams").tag("go_teams")
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .fixedSize()
-            }
-
-            HStack(spacing: 8) {
-                Text("Org ID")
-                TextField("optional, only if your key sees several workspaces", text: $orgId)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.system(size: 11))
-            }
 
             HStack(spacing: 12) {
                 Text("Warn / critical")
@@ -363,7 +342,5 @@ struct SettingsView: View {
         .padding(12)
         .background(RoundedRectangle(cornerRadius: 10).fill(Color.primary.opacity(0.05)))
         .onChange(of: refreshMinutes) { _, _ in store.settingsChanged() }
-        .onChange(of: orgId) { _, _ in store.settingsChanged() }
-        .onChange(of: plan) { _, _ in store.settingsChanged() }
     }
 }

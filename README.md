@@ -105,8 +105,6 @@ Open the panel, click the gear.
 | Setting | Default | Notes |
 | --- | --- | --- |
 | Refresh | 10 min | Timer keeps running while the panel is closed. |
-| Plan | Go | `Go`, `Go Plus` or `Go Teams`. Sets which limit table the percentages are measured against. |
-| Org ID | empty | Only for keys that can reach several workspaces: the header is sent only when set. |
 | Warn / critical | 80% / 95% | Panel color and warning triangle. |
 | Menu bar | H + W + M | Which figures to show. |
 | Launch at login | off | Writes and registers `~/Library/LaunchAgents/dev.myleshen.opencode-usage.plist`. |
@@ -122,13 +120,15 @@ magnitude. The app therefore always shows every principal the key can see.
 
 ## Plans and the model list
 
-Limit tables ship for all three plans — `Go`, `Go Plus`, `Go Teams` — 28 models
-each, picked in settings. The wrong plan does not break anything, it just
-divides by the wrong limit, so set it once after installing.
+The built-in table covers **Go** only: the 28 models and their monthly limits,
+copied from <https://opencode.ai/docs/go/>. Go Plus has substantially higher
+limits and Go Teams is Go + $5 per model, so on those plans the printed limits
+(and any percentage computed without a console session) will be low. There is
+no plan field in any API to detect it from, so the app does not guess.
 
-Below the model cards, **All 28 models in <plan>** expands into the full list
-for that plan, alphabetical, with this month's spend and the model's limit;
-models you have not touched read `no usage`. It is a plain list, not a picker.
+Below the model cards, **All 28 models** expands into the full list,
+alphabetical, with this month's spend and the model's limit; models you have not
+touched read `no usage`. It is a plain list, not a picker.
 
 A model added after this build has no limit to compare against, so it shows
 "no limit data" and a banner, while spend and request counts keep updating.
@@ -142,10 +142,12 @@ Two sources, in this order:
    console dashboard shows, with the real window boundary, so the app uses it
    whenever it is there. Requires opencode to be signed into a console workspace
    (`account` / `workspace` tables populated by the device sign-in above); the
-   details row then reads `5h resets 19:45 +05:30`. All three figures come from
-   the same payload, whose boundaries are not the ones you would guess: the
-   weekly window resets Monday **00:00 UTC**, and the monthly window is a
-   rolling ~30 days, not the calendar month.
+   details row then reads `5h resets 19:45 +05:30`. The same payload names the
+   workspace, which is what the subtitle shows (`Default · Go plan`) — there is
+   no org or workspace setting, because the key already implies it. All three
+   figures come from the same payload, whose boundaries are not the ones you
+   would guess: the weekly window resets Monday **00:00 UTC**, and the monthly
+   window is a rolling ~30 days, not the calendar month.
 2. **A rolling five-hour sum** of the console usage API, if that meter is absent.
    Then the panel labels the card `Last 5h` and shows the window start and end
    instead of a reset time, because a rolling sum has no future boundary.
@@ -198,7 +200,7 @@ this Mac's timezone.
 | `No OpenCode Go credential found` | Nothing for the `opencode-go` integration: `opencode auth login`, pick OpenCode Go. |
 | `The OpenCode Go key was rejected (HTTP 401)` | Key expired or rotated: re-run `opencode auth login`. |
 | Panel says `Last 5h` instead of `5-hour` | No console session, so `--limits` returns `{"data":null}`: re-run the device sign-in. |
-| `no limit data` on every card | Wrong `Plan` setting, or a model newer than the built-in table. Spend still works. |
+| `no limit data` on every card | A model newer than the built-in table, or a Go Plus/Teams account. Spend still works. |
 | Gatekeeper says the app is damaged | Quarantine flag: `xattr -dr com.apple.quarantine /Applications/OpenCodeUsage.app`. |
 | Menu bar shows two gauges | Stale copy holding no lock file — remove the other `OpenCodeUsage.app`, keep one. |
 

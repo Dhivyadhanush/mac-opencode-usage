@@ -54,8 +54,7 @@ enum SelfTest {
         ]
         let data = Usage.aggregate(
             windows: [.five: five, .week: week, .month: month, .today: today],
-            since: since,
-            plan: "go"
+            since: since
         )
 
         check(data.five == 2, "five-hour total")
@@ -101,8 +100,7 @@ enum SelfTest {
 
         var metered = Usage.aggregate(
             windows: [.five: five, .week: week, .month: month, .today: []],
-            since: since,
-            plan: "go"
+            since: since
         )
         metered.meters = meters
         check(abs((Usage.top(metered, .five)?.pct ?? 0) - 0.37) < 0.0001, "meter percent wins over spend")
@@ -115,30 +113,22 @@ enum SelfTest {
         check(Usage.calendar.component(.hour, from: weekStart) == 0, "week starts at midnight")
         check(Usage.iso.string(from: weekStart).hasSuffix("Z"), "since is UTC ISO")
 
-        // A plan or model we have no limit for must render as "no limit data"
-        // instead of dividing by zero or claiming "unlimited".
+        // A model we have no limit for must render as "no limit data" instead
+        // of dividing by zero or claiming "unlimited".
         let unknown = Usage.aggregate(
             windows: [.five: [], .week: [], .month: [["provider": "opencode-go", "model": "brand-new", "totalCostMicroCents": "10000000"]], .today: []],
-            since: since,
-            plan: "go_plus"
+            since: since
         )
         check(unknown.models.first?.limit == nil, "unknown model has no limit")
         check(Usage.cap(unknown.models[0], .month) == nil, "no cap without a limit")
         check(Usage.top(unknown, .month) == nil, "no percentage without a limit")
 
-        // Every plan table must be complete: same model set, and a plan that
-        // doubles the allowance must not silently fall back to `go`.
-        let plans = Limits.planNames
-        check(plans.count == 3, "three plan tables")
-        let goModels = Set(Limits.models(plan: "go"))
-        check(goModels.count == 28, "go covers 28 models")
-        for name in plans {
-            check(Set(Limits.models(plan: name)) == goModels, "\(name) covers the same models as go")
-        }
-        check(Limits.value(plan: "go", model: "deepseek-v4.1-flash") == 100, "go limit")
-        check(Limits.value(plan: "go_plus", model: "deepseek-v4.1-flash") == 200, "go_plus limit")
-        check(Limits.value(plan: "go_teams", model: "deepseek-v4.1-flash") == 105, "go_teams limit")
-        check(Limits.value(plan: "nope", model: "deepseek-v4.1-flash") == nil, "unknown plan has no limits")
+        // The Go table must be complete: every model has a positive limit.
+        let goModels = Limits.models()
+        check(goModels.count == 28, "28 models in the Go table")
+        check(goModels.allSatisfy { (Limits.value(model: $0) ?? 0) > 0 }, "every model has a limit")
+        check(Limits.value(model: "deepseek-v4.1-flash") == 100, "go limit")
+        check(Limits.value(model: "nope") == nil, "unknown model has no limit")
 
         print(failures == 0 ? "selftest ok" : "selftest failed: \(failures)")
         exit(failures == 0 ? 0 : 1)

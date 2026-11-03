@@ -14,14 +14,6 @@ final class Store: ObservableObject {
     }
 
 
-    var orgId: String {
-        UserDefaults.standard.string(forKey: "orgId") ?? ""
-    }
-
-    var plan: String {
-        let stored = UserDefaults.standard.string(forKey: "plan") ?? "go"
-        return Limits.plans[stored] == nil ? "go" : stored
-    }
 
     var warning: Double {
         Double(UserDefaults.standard.object(forKey: "warning") as? Int ?? 80) / 100
@@ -53,7 +45,7 @@ final class Store: ObservableObject {
         defer { busy = false }
 
         do {
-            data = try await Usage.fetch(orgId: orgId, plan: plan)
+            data = try await Usage.fetch()
             error = nil
         } catch {
             self.error = error.localizedDescription

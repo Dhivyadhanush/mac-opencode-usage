@@ -42,7 +42,6 @@ struct UsageData {
     var cacheRead = 0
     var cacheWrite = 0
     var models: [ModelUsage] = []
-    var plan = "go"
     var updatedAt = Date()
     var fiveSinceAt = Date()
     var weekSinceAt = Date()
@@ -65,6 +64,9 @@ struct Meters {
     var five: Meter
     var week: Meter
     var month: Meter
+    // Name of the console workspace the meter came from; also the only place
+    // the workspace is identified, so no org setting is needed.
+    var workspace: String?
 
     func meter(_ period: Period) -> Meter? {
         switch period {
@@ -78,110 +80,42 @@ struct Meters {
 
 
 enum Limits {
-    // Lifted from the Luau plugin, per plan. A model missing here has no
-    // percentage, only spend.
-    static let plans: [String: [String: Double]] = [
-        "go": [
-            "glm-5.3-flash": 60,
-            "glm-5.3": 15,
-            "glm-5.2": 60,
-            "kimi-k3.1-pro": 15,
-            "kimi-k3": 15,
-            "kimi-k2.7-code": 60,
-            "longcat-2.0": 60,
-            "step-5-preview": 15,
-            "mimo-v2.6-flash": 60,
-            "mimo-v2.6-pro": 15,
-            "mimo-v2.5": 60,
-            "mimo-v2.5-pro": 15,
-            "minimax-m3.1-flash": 20,
-            "minimax-m3": 60,
-            "muse-spark-1.3-contributor": 60,
-            "muse-spark-1.2-contributor": 60,
-            "qwen3.8-max": 15,
-            "qwen3.8-flash": 30,
-            "qwen3.7-plus": 60,
-            "deepseek-v4.1-flash": 100,
-            "deepseek-v4-pro": 15,
-            "hy4-preview": 30,
-            "hy3": 60,
-            "grok-4.7": 15,
-            "gpt-6-luna": 15,
-            "gpt-5.6-luna": 15,
-            "claude-haiku-5-5": 15,
-            "gemini-4-argon": 30,
-        ],
-        "go_plus": [
-            "glm-5.3-flash": 180,
-            "glm-5.3": 120,
-            "glm-5.2": 180,
-            "kimi-k3.1-pro": 60,
-            "kimi-k3": 60,
-            "kimi-k2.7-code": 180,
-            "longcat-2.0": 240,
-            "step-5-preview": 60,
-            "mimo-v2.6-flash": 120,
-            "mimo-v2.6-pro": 60,
-            "mimo-v2.5": 120,
-            "mimo-v2.5-pro": 60,
-            "minimax-m3.1-flash": 80,
-            "minimax-m3": 180,
-            "muse-spark-1.3-contributor": 120,
-            "muse-spark-1.2-contributor": 120,
-            "qwen3.8-max": 60,
-            "qwen3.8-flash": 90,
-            "qwen3.7-plus": 180,
-            "deepseek-v4.1-flash": 200,
-            "deepseek-v4-pro": 60,
-            "hy4-preview": 120,
-            "hy3": 240,
-            "grok-4.7": 60,
-            "gpt-6-luna": 60,
-            "gpt-5.6-luna": 60,
-            "claude-haiku-5-5": 60,
-            "gemini-4-argon": 120,
-        ],
-        "go_teams": [
-            "glm-5.3-flash": 65,
-            "glm-5.3": 20,
-            "glm-5.2": 65,
-            "kimi-k3.1-pro": 20,
-            "kimi-k3": 20,
-            "kimi-k2.7-code": 65,
-            "longcat-2.0": 65,
-            "step-5-preview": 20,
-            "mimo-v2.6-flash": 65,
-            "mimo-v2.6-pro": 20,
-            "mimo-v2.5": 65,
-            "mimo-v2.5-pro": 20,
-            "minimax-m3.1-flash": 25,
-            "minimax-m3": 65,
-            "muse-spark-1.3-contributor": 65,
-            "muse-spark-1.2-contributor": 65,
-            "qwen3.8-max": 20,
-            "qwen3.8-flash": 35,
-            "qwen3.7-plus": 65,
-            "deepseek-v4.1-flash": 105,
-            "deepseek-v4-pro": 20,
-            "hy4-preview": 35,
-            "hy3": 65,
-            "grok-4.7": 20,
-            "gpt-6-luna": 20,
-            "gpt-5.6-luna": 20,
-            "claude-haiku-5-5": 20,
-            "gemini-4-argon": 35,
-        ],
+    // Monthly limits for the Go plan, from https://opencode.ai/docs/go/.
+    // A model missing here has no percentage, only spend.
+    static let go: [String: Double] = [
+        "glm-5.3-flash": 60,
+        "glm-5.3": 15,
+        "glm-5.2": 60,
+        "kimi-k3.1-pro": 15,
+        "kimi-k3": 15,
+        "kimi-k2.7-code": 60,
+        "longcat-2.0": 60,
+        "step-5-preview": 15,
+        "mimo-v2.6-flash": 60,
+        "mimo-v2.6-pro": 15,
+        "mimo-v2.5": 60,
+        "mimo-v2.5-pro": 15,
+        "minimax-m3.1-flash": 20,
+        "minimax-m3": 60,
+        "muse-spark-1.3-contributor": 60,
+        "muse-spark-1.2-contributor": 60,
+        "qwen3.8-max": 15,
+        "qwen3.8-flash": 30,
+        "qwen3.7-plus": 60,
+        "deepseek-v4.1-flash": 100,
+        "deepseek-v4-pro": 15,
+        "hy4-preview": 30,
+        "hy3": 60,
+        "grok-4.7": 15,
+        "gpt-6-luna": 15,
+        "gpt-5.6-luna": 15,
+        "claude-haiku-5-5": 15,
+        "gemini-4-argon": 30,
     ]
 
-    static let planNames = ["go", "go_plus", "go_teams"]
+    static func value(model: String) -> Double? { go[model] }
 
-    static func value(plan: String, model: String) -> Double? {
-        plans[plan]?[model]
-    }
-
-    static func models(plan: String) -> [String] {
-        (plans[plan] ?? [:]).keys.sorted()
-    }
+    static func models() -> [String] { go.keys.sorted() }
 }
 
 enum Usage {
@@ -297,11 +231,10 @@ enum Usage {
         return nil
     }
 
-    static func request(_ url: URL, key: String, org: String) async throws -> [String: Any] {
+    static func request(_ url: URL, key: String) async throws -> [String: Any] {
         var request = URLRequest(url: url)
         request.timeoutInterval = 20
         request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
-        if !org.isEmpty { request.setValue(org, forHTTPHeaderField: "x-org-id") }
 
         request.setValue("application/json", forHTTPHeaderField: "Accept")
 
@@ -366,7 +299,7 @@ enum Usage {
         return nil
     }
 
-    static func models(since: Date, key: String, org: String) async throws -> [[String: Any]] {
+    static func models(since: Date, key: String) async throws -> [[String: Any]] {
         var items: [[String: Any]] = []
         var page = 1
         while true {
@@ -377,7 +310,7 @@ enum Usage {
                 URLQueryItem(name: "page", value: String(page)),
             ]
 
-            let body = try await request(components.url!, key: key, org: org)
+            let body = try await request(components.url!, key: key)
             items += body["items"] as? [[String: Any]] ?? []
 
             let info = body["pageInfo"] as? [String: Any] ?? [:]
@@ -392,10 +325,9 @@ enum Usage {
 
     static func aggregate(
         windows: [Period: [[String: Any]]],
-        since: [Period: Date],
-        plan: String
+        since: [Period: Date]
     ) -> UsageData {
-        var data = UsageData(plan: plan)
+        var data = UsageData()
         data.fiveSinceAt = since[.five] ?? Date()
         data.weekSinceAt = since[.week] ?? Date()
         data.monthSinceAt = since[.month] ?? Date()
@@ -408,7 +340,7 @@ enum Usage {
             for item in windows[period] ?? [] {
                 guard item["provider"] as? String == "opencode-go" else { continue }
                 let id = item["model"] as? String ?? "(unknown)"
-                var model = byId[id] ?? ModelUsage(id: id, limit: Limits.value(plan: plan, model: id))
+                var model = byId[id] ?? ModelUsage(id: id, limit: Limits.value(model: id))
                 if byId[id] == nil { order.append(id) }
 
                 let cost = (number(item["totalCostMicroCents"]) ?? 0) / 100_000_000
@@ -452,11 +384,10 @@ enum Usage {
         return data
     }
 
-    static func fetch(orgId: String, plan: String = "go") async throws -> UsageData {
+    static func fetch() async throws -> UsageData {
+        // The key implies its workspace: the usage API needs no org header, and
+        // the meter reports which workspace it answered for.
         let key = try credential()
-        // The key already implies its workspace; x-org-id is only needed when a
-        // key can reach several, so an empty value simply omits the header.
-        let org = orgId
 
         let now = Date()
         let since: [Period: Date] = [
@@ -471,14 +402,14 @@ enum Usage {
             for period in Period.allCases {
                 let at = since[period]!
                 group.addTask {
-                    (period, try await models(since: at, key: key, org: org))
+                    (period, try await models(since: at, key: key))
                 }
             }
             for try await (period, items) in group {
                 windows[period] = items
             }
         }
-        var data = aggregate(windows: windows, since: since, plan: plan)
+        var data = aggregate(windows: windows, since: since)
         data.meters = metersFromCLI()
         return data
     }
@@ -507,10 +438,22 @@ enum Usage {
         guard let five = meter("rolling"), let week = meter("weekly"), let month = meter("monthly") else {
             return nil
         }
-        return Meters(five: five, week: week, month: month)
+        let workspace = (info["workspace"] as? [String: Any])?["name"] as? String
+        return Meters(five: five, week: week, month: month, workspace: workspace)
     }
 
     static func cliJSON() -> Data {
+        // The CLI can come back empty right after launch (server still coming
+        // up), and a nil meter silently downgrades the whole panel to sums.
+        for attempt in 0..<2 {
+            let data = cliOnce()
+            if !data.isEmpty { return data }
+            if attempt == 0 { Thread.sleep(forTimeInterval: 1) }
+        }
+        return Data()
+    }
+
+    private static func cliOnce() -> Data {
         guard let cli = opencodeCLI() else { return Data() }
         let process = Process()
         process.executableURL = cli
@@ -527,7 +470,7 @@ enum Usage {
     // MARK: - Debug dump
 
     static func describe(_ data: UsageData) -> String {
-        var lines = ["plan \(data.plan) · updated \(data.updatedAt)"]
+        var lines = ["go plan · updated \(data.updatedAt)"]
         for period in [Period.five, .week, .month] {
             if let top = top(data, period) {
                 lines.append("\(period.rawValue): \(percent(top.pct)) · \(top.model.id) · \(money(top.value)) of \(money(top.cap))")
