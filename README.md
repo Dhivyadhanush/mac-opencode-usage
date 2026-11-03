@@ -21,7 +21,20 @@ The cask lives in [Myleshen/homebrew-tap](https://github.com/Myleshen/homebrew-t
 (alongside my other casks). `brew upgrade` picks up new releases from there.
 
 Or download `OpenCodeUsage.zip` from the latest release and drag the app out.
-The build is ad-hoc signed, so the first launch needs right-click → **Open**.
+
+### Ad-hoc signing (first launch)
+
+The build is signed ad-hoc, not notarised, so a copy that came through a
+browser carries a quarantine flag and Gatekeeper will call it *damaged*. The
+cask clears the flag in a `postflight` step, so a Homebrew install just works.
+For a manual download, clear it yourself once:
+
+```shell
+xattr -dr com.apple.quarantine /Applications/OpenCodeUsage.app
+```
+
+or right-click the app → **Open** → **Open** to approve it. Nothing is
+downloaded again at runtime; the only network traffic is the usage API.
 
 ## Build
 
@@ -89,7 +102,9 @@ for the `since` parameter.
 - Launching the app twice is safe: the newer copy exits and the older one keeps
   the menu bar item, so the login item cannot produce a duplicate.
 - No Quit menu item — `pkill -f OpenCodeUsage` or delete the app.
-- Uninstall: turn off launch at login, quit, delete the app.
+- Uninstall: `brew uninstall --cask opencode-usage` (it also removes the
+  LaunchAgent and quits the app). `brew uninstall --zap` also drops the lock
+  file.
 
 ## Releasing
 
