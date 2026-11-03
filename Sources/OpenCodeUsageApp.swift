@@ -8,6 +8,7 @@ struct OpenCodeUsageApp: App {
     init() {
         if CommandLine.arguments.contains("--selftest") { SelfTest.run() }
         if CommandLine.arguments.contains("--dump") { Self.dump() }
+        if CommandLine.arguments.contains("--limits") { Self.limits() }
 
         // Headless switch for the login item: ./OpenCodeUsage --loginitem on|off
         if let i = CommandLine.arguments.firstIndex(of: "--loginitem"),
@@ -21,6 +22,8 @@ struct OpenCodeUsageApp: App {
         // Launching twice (login item plus a manual open) would show two menu bar
         // items that refresh independently. Only the first instance survives.
         if !InstanceLock.acquire() { exit(0) }
+
+        LoginItem.repair()
     }
 
     var body: some Scene {
@@ -30,6 +33,27 @@ struct OpenCodeUsageApp: App {
             MenuBarLabel(store: store)
         }
         .menuBarExtraStyle(.window)
+    }
+
+    // opencode's own usage route, the one the desktop app uses. It answers null
+    // until a console workspace is linked to the local app, so this exists to
+    // check availability before the console API can be retired.
+    private static func limits() -> Never {
+        guard let cli = Usage.opencodeCLI() else {
+            print("opencode CLI not found")
+            exit(1)
+        }
+        let process = Process()
+        process.executableURL = cli
+        process.arguments = ["api", "GET", "/api/experimental/usage/limits"]
+        let output = Pipe()
+        process.standardOutput = output
+        process.standardError = Pipe()
+        try? process.run()
+        let data = output.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        print(String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines))
+        exit(0)
     }
 
     // Verifies the whole fetch path without a GUI: ./OpenCodeUsage --dump

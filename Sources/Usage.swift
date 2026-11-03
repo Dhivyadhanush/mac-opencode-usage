@@ -1,9 +1,8 @@
 import Foundation
-import SQLite3
 
 // Port of ~/dot-files/cachyos/noctalia/plugins/opencode-usage/lib/usage.luau.
-// Difference: credentials are read straight from auth.json instead of running
-// `opencode auth export`, so the app needs no shell and no PATH.
+// Difference: credentials come from `opencode auth export` rather than opencode's
+// sqlite file, so a schema change cannot break the app.
 
 enum Period: String, CaseIterable {
     case five, week, month, today
@@ -206,58 +205,49 @@ enum Usage {
         return object
     }
 
+    // Ask the CLI instead of reading its database: `auth export` is the
+    // supported interface, and the sqlite schema changes between releases.
     static func credential() throws -> String {
-        if let key = try? databaseKey() { return key }
-        if let key = try? legacyFileKey() { return key }
+        guard let cli = opencodeCLI() else {
+            throw Failure("Could not find the `opencode` CLI. Install it with `brew install sst/tap/opencode`.")
+        }
+        let process = Process()
+        process.executableURL = cli
+        process.arguments = ["auth", "export"]
+        let output = Pipe()
+        process.standardOutput = output
+        process.standardError = Pipe()
+        do {
+            try process.run()
+        } catch {
+            throw Failure("Could not run `opencode auth export`: \(error.localizedDescription)")
+        }
+        let data = output.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+
+        guard let entries = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+            throw Failure("Could not read the output of `opencode auth export`.")
+        }
+        for entry in entries where entry["integrationID"] as? String == "opencode-go" {
+            guard let value = entry["value"] as? [String: Any] else { continue }
+            if let key = value["key"] as? String, !key.isEmpty { return key }
+            if let key = value["access"] as? String, !key.isEmpty { return key }
+        }
         throw Failure("No OpenCode Go credential found. Run `opencode auth login`.")
     }
 
-    // opencode v2 keeps credentials in opencode.db; auth.json is only left over
-    // from v1 and can hold an expired key, so the DB is the primary source.
-    static func databaseKey() throws -> String {
-        let path = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".local/share/opencode/opencode.db")
-        var database: OpaquePointer?
-        guard sqlite3_open_v2(path.path, &database, SQLITE_OPEN_READONLY, nil) == SQLITE_OK,
-              let database else {
-            throw Failure("Could not open the OpenCode credential database.")
+    // launchd starts the app with a minimal PATH, so Homebrew prefixes are
+    // checked explicitly before falling back to PATH.
+    static func opencodeCLI() -> URL? {
+        let candidates = ["/opt/homebrew/bin/opencode", "/usr/local/bin/opencode"]
+        for path in candidates where FileManager.default.isExecutableFile(atPath: path) {
+            return URL(fileURLWithPath: path)
         }
-        defer { sqlite3_close(database) }
-
-        let sql = """
-            select value from credential
-            where integration_id = 'opencode-go' and active = 1
-            order by time_updated desc limit 1
-            """
-        var statement: OpaquePointer?
-        guard sqlite3_prepare_v2(database, sql, -1, &statement, nil) == SQLITE_OK,
-              let statement else {
-            throw Failure("Could not read the OpenCode credential database.")
+        for directory in (ProcessInfo.processInfo.environment["PATH"] ?? "").split(separator: ":") {
+            let path = "\(directory)/opencode"
+            if FileManager.default.isExecutableFile(atPath: path) { return URL(fileURLWithPath: path) }
         }
-        defer { sqlite3_finalize(statement) }
-
-        guard sqlite3_step(statement) == SQLITE_ROW,
-              let text = sqlite3_column_text(statement, 0),
-              let data = String(cString: text).data(using: .utf8),
-              let entry = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw Failure("No OpenCode Go credential found. Run `opencode auth login`.")
-        }
-        if let key = entry["key"] as? String, !key.isEmpty { return key }
-        if let key = entry["access"] as? String, !key.isEmpty { return key }
-        throw Failure("No OpenCode Go credential found. Run `opencode auth login`.")
-    }
-
-    static func legacyFileKey() throws -> String {
-        let path = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".local/share/opencode/auth.json")
-        guard let data = try? Data(contentsOf: path),
-              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw Failure("Could not read OpenCode credentials. Run `opencode auth login`.")
-        }
-        let entry = root["opencode-go"] as? [String: Any] ?? [:]
-        if let key = entry["key"] as? String, !key.isEmpty { return key }
-        if let key = entry["access"] as? String, !key.isEmpty { return key }
-        throw Failure("No OpenCode Go credential found. Run `opencode auth login`.")
+        return nil
     }
 
     static func models(since: Date, key: String, org: String) async throws -> [[String: Any]] {

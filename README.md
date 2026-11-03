@@ -13,10 +13,10 @@ for per-model spend, requests, tokens and the reset times.
 ## Requirements
 
 - macOS 14 or newer.
-- opencode installed and signed in to a Go plan: the app reads that key from
-  `~/.local/share/opencode/opencode.db` (or the older `auth.json`). It has no
-  key of its own and no login screen — if the key is missing or expired the
-  panel says so and points at `opencode auth login`.
+- opencode installed (`brew install sst/tap/opencode`) and signed in to a Go
+  plan. The app asks the CLI for the credential with `opencode auth export` and
+  keeps nothing of its own: no key is stored, there is no login screen, and if
+  the key is missing or expired the panel points at `opencode auth login`.
 
 ## Install
 
@@ -61,6 +61,7 @@ Self-checks:
 ```shell
 ./build/OpenCodeUsage.app/Contents/MacOS/OpenCodeUsage --selftest   # offline asserts
 ./build/OpenCodeUsage.app/Contents/MacOS/OpenCodeUsage --dump       # live fetch, prints numbers
+./build/OpenCodeUsage.app/Contents/MacOS/OpenCodeUsage --limits     # ask opencode's own usage route
 ./build/OpenCodeUsage.app/Contents/MacOS/OpenCodeUsage --loginitem on|off  # same as the settings toggle
 ```
 
@@ -91,11 +92,10 @@ Adding `go_plus` / `go_teams` limits to `Sources/Usage.swift` would fix that.
 
 ## How it works
 
-1. Reads the Go key from `~/.local/share/opencode/opencode.db` (table
-   `credential`, `integration_id = 'opencode-go'`, `active = 1`), falling back to
-   the legacy `~/.local/share/opencode/auth.json`. opencode v2 moved credentials
-   into sqlite; the JSON file can hold an expired key. The key never leaves the
-   machine except as the `Authorization` header to `opencode.ai`.
+1. Asks the CLI for the active Go credential (`opencode auth export`) rather
+   than reading opencode's sqlite file, so a schema change cannot break it. The
+   key never leaves the machine except as the `Authorization` header to
+   `opencode.ai`.
 2. `GET /console/api/usage/models?since=…` for the 5h / week / month / today
    windows, in parallel, following pagination.
 3. Filters `provider == "opencode-go"`, converts `totalCostMicroCents / 1e8` to
@@ -107,8 +107,9 @@ for the `since` parameter.
 
 ## Notes
 
-- The launch-at-login plist records the absolute path of the bundle, so
-  re-run the toggle after moving the app.
+- The launch-at-login plist records the absolute path of the bundle. If the app
+  is moved or rebuilt elsewhere, the next launch rewrites the plist to the path
+  it is running from, so the login item keeps working.
 - Launching the app twice is safe: the newer copy exits and the older one keeps
   the menu bar item, so the login item cannot produce a duplicate.
 - No Quit menu item — `pkill -f OpenCodeUsage` or delete the app.

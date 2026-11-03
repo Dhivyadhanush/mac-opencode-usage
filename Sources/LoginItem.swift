@@ -14,6 +14,17 @@ enum LoginItem {
         FileManager.default.fileExists(atPath: url.path)
     }
 
+    // A rebuild or a move leaves the plist pointing at a path that no longer
+    // exists, so fix it on launch instead of silently losing the login item.
+    static func repair() {
+        guard enabled,
+              let path = Bundle.main.executableURL?.path,
+              let plist = NSDictionary(contentsOf: url) as? [String: Any],
+              let arguments = plist["ProgramArguments"] as? [String],
+              arguments.first != path else { return }
+        try? set(true)
+    }
+
     static func set(_ on: Bool) throws {
         if on {
             // Drop any stale registration first, then write and register. The
