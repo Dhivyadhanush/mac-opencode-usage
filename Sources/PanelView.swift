@@ -16,6 +16,7 @@ private let clock: DateFormatter = {
 struct PanelView: View {
     @ObservedObject var store: Store
     @State private var showSettings = false
+    @State private var showAllModels = false
 
     var body: some View {
         ScrollView {
@@ -75,7 +76,7 @@ struct PanelView: View {
             // look like a broken app: every percentage is a dash.
             if data.models.contains(where: { $0.month > 0 }) && Usage.top(data, .month) == nil {
                 banner("No spend limits for these models.",
-                       detail: "The built-in table only covers the `go` plan, so percentages are unavailable. Spend and requests still update.")
+                       detail: "The built-in table covers go, go_plus and go_teams; this model is not in it, so percentages are unavailable. Spend and requests still update.")
             }
 
             Divider()
@@ -90,6 +91,8 @@ struct PanelView: View {
                     modelCard(model)
                 }
             }
+
+            allModels(data)
 
             Divider()
             details(data)
@@ -212,6 +215,47 @@ struct PanelView: View {
         return clock.string(from: at) + " " + Usage.offset
     }
 
+    // Every model the plan covers, including ones with no spend this month —
+    // otherwise a model you have never touched is invisible. A plain button
+    // rather than DisclosureGroup: that one never took clicks in a
+    // MenuBarExtra window.
+    @ViewBuilder
+    private func allModels(_ data: UsageData) -> some View {
+        let names = Limits.models(plan: data.plan)
+        Button {
+            showAllModels.toggle()
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: showAllModels ? "chevron.down" : "chevron.right")
+                    .font(.system(size: 9, weight: .bold))
+                Text("All \(names.count) models in \(data.plan)")
+                    .font(.system(size: 11, weight: .medium))
+                Spacer()
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.borderless)
+
+        if showAllModels {
+            VStack(spacing: 3) {
+                ForEach(names, id: \.self) { name in
+                    let model = data.models.first { $0.id == name }
+                    let limit = Limits.value(plan: data.plan, model: name)
+                    HStack(spacing: 6) {
+                        Text(name).font(.system(size: 10))
+                        Spacer()
+                        if let model, model.month > 0 {
+                            Text(Usage.money(model.month)).font(.system(size: 10, weight: .medium))
+                            Text("/ \(Usage.money(limit ?? 0))").font(.system(size: 10)).foregroundStyle(.secondary)
+                        } else {
+                            Text("no usage").font(.system(size: 10)).foregroundStyle(.tertiary)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private func detailRow(_ label: String, _ value: String) -> some View {
         HStack {
             Text(label).font(.system(size: 11)).foregroundStyle(.secondary)
@@ -236,6 +280,7 @@ struct SettingsView: View {
 
     @AppStorage("refreshMinutes") private var refreshMinutes = 10
     @AppStorage("orgId") private var orgId = ""
+    @AppStorage("plan") private var plan = "go"
     @AppStorage("warning") private var warning = 80
     @AppStorage("critical") private var critical = 95
     @AppStorage("barFive") private var barFive = true
@@ -253,6 +298,19 @@ struct SettingsView: View {
                 Spacer()
                 Stepper("\(refreshMinutes) min", value: $refreshMinutes, in: 1...120)
                     .fixedSize()
+            }
+
+            HStack(spacing: 8) {
+                Text("Plan")
+                Spacer()
+                Picker("", selection: $plan) {
+                    Text("Go").tag("go")
+                    Text("Go Plus").tag("go_plus")
+                    Text("Go Teams").tag("go_teams")
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .fixedSize()
             }
 
             HStack(spacing: 8) {
@@ -304,7 +362,8 @@ struct SettingsView: View {
         .font(.system(size: 11))
         .padding(12)
         .background(RoundedRectangle(cornerRadius: 10).fill(Color.primary.opacity(0.05)))
-        .onChange(of: refreshMinutes) { store.settingsChanged() }
-        .onChange(of: orgId) { store.settingsChanged() }
+        .onChange(of: refreshMinutes) { _, _ in store.settingsChanged() }
+        .onChange(of: orgId) { _, _ in store.settingsChanged() }
+        .onChange(of: plan) { _, _ in store.settingsChanged() }
     }
 }

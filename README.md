@@ -105,6 +105,7 @@ Open the panel, click the gear.
 | Setting | Default | Notes |
 | --- | --- | --- |
 | Refresh | 10 min | Timer keeps running while the panel is closed. |
+| Plan | Go | `Go`, `Go Plus` or `Go Teams`. Sets which limit table the percentages are measured against. |
 | Org ID | empty | Only for keys that can reach several workspaces: the header is sent only when set. |
 | Warn / critical | 80% / 95% | Panel color and warning triangle. |
 | Menu bar | H + W + M | Which figures to show. |
@@ -119,10 +120,18 @@ member account had $0.85 this month while the account total was $10 — same Go
 quota, so filtering to the member id would have under-reported it by an order of
 magnitude. The app therefore always shows every principal the key can see.
 
-Only the `go` plan table is included. On another plan (or a model added after
-this build) there is no limit to compare against, so the panel shows
+## Plans and the model list
+
+Limit tables ship for all three plans — `Go`, `Go Plus`, `Go Teams` — 28 models
+each, picked in settings. The wrong plan does not break anything, it just
+divides by the wrong limit, so set it once after installing.
+
+Below the model cards, **All 28 models in <plan>** expands into the full list
+for that plan, alphabetical, with this month's spend and the model's limit;
+models you have not touched read `no usage`. It is a plain list, not a picker.
+
+A model added after this build has no limit to compare against, so it shows
 "no limit data" and a banner, while spend and request counts keep updating.
-Adding `go_plus` / `go_teams` limits to `Sources/Usage.swift` would fix that.
 
 ## Where the percentages come from
 
@@ -189,7 +198,7 @@ this Mac's timezone.
 | `No OpenCode Go credential found` | Nothing for the `opencode-go` integration: `opencode auth login`, pick OpenCode Go. |
 | `The OpenCode Go key was rejected (HTTP 401)` | Key expired or rotated: re-run `opencode auth login`. |
 | Panel says `Last 5h` instead of `5-hour` | No console session, so `--limits` returns `{"data":null}`: re-run the device sign-in. |
-| `no limit data` on every card | Plan other than `go`, or a model newer than the built-in table. Spend still works. |
+| `no limit data` on every card | Wrong `Plan` setting, or a model newer than the built-in table. Spend still works. |
 | Gatekeeper says the app is damaged | Quarantine flag: `xattr -dr com.apple.quarantine /Applications/OpenCodeUsage.app`. |
 | Menu bar shows two gauges | Stale copy holding no lock file — remove the other `OpenCodeUsage.app`, keep one. |
 

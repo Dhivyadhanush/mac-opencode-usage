@@ -126,6 +126,20 @@ enum SelfTest {
         check(Usage.cap(unknown.models[0], .month) == nil, "no cap without a limit")
         check(Usage.top(unknown, .month) == nil, "no percentage without a limit")
 
+        // Every plan table must be complete: same model set, and a plan that
+        // doubles the allowance must not silently fall back to `go`.
+        let plans = Limits.planNames
+        check(plans.count == 3, "three plan tables")
+        let goModels = Set(Limits.models(plan: "go"))
+        check(goModels.count == 28, "go covers 28 models")
+        for name in plans {
+            check(Set(Limits.models(plan: name)) == goModels, "\(name) covers the same models as go")
+        }
+        check(Limits.value(plan: "go", model: "deepseek-v4.1-flash") == 100, "go limit")
+        check(Limits.value(plan: "go_plus", model: "deepseek-v4.1-flash") == 200, "go_plus limit")
+        check(Limits.value(plan: "go_teams", model: "deepseek-v4.1-flash") == 105, "go_teams limit")
+        check(Limits.value(plan: "nope", model: "deepseek-v4.1-flash") == nil, "unknown plan has no limits")
+
         print(failures == 0 ? "selftest ok" : "selftest failed: \(failures)")
         exit(failures == 0 ? 0 : 1)
     }
