@@ -79,9 +79,12 @@ struct PanelView: View {
     private var content: some View {
         if let data = store.data {
             HStack(spacing: 10) {
+                // Only the 5-hour window is small enough for the usage API to
+                // serve in dollars; for the wider ones the console meter's reset
+                // time is the honest second line.
                 summaryCard(data.meters == nil ? "Last 5h" : "5-hour", Usage.top(data, .five))
-                summaryCard("Weekly", Usage.top(data, .week))
-                summaryCard("Monthly", Usage.top(data, .month))
+                summaryCard("Weekly", Usage.top(data, .week), note: resetNote(data.meters?.week))
+                summaryCard("Monthly", Usage.top(data, .month), note: resetNote(data.meters?.month))
             }
 
             if let error = store.error {
@@ -103,7 +106,7 @@ struct PanelView: View {
             }
 
             Divider()
-            Text("Models this month").font(.system(size: 12, weight: .semibold))
+            Text("Models").font(.system(size: 12, weight: .semibold))
 
             if data.models.isEmpty {
                 Text("No OpenCode Go usage in this period.")
@@ -126,13 +129,13 @@ struct PanelView: View {
         }
     }
 
-    private func summaryCard(_ label: String, _ top: Usage.Top?) -> some View {
+    private func summaryCard(_ label: String, _ top: Usage.Top?, note: String? = nil) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(label).font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
             Text(top.map { Usage.percent($0.pct) } ?? "—")
                 .font(.system(size: 20, weight: .bold))
                 .foregroundStyle(usageColor(top?.pct, warning: store.warning, critical: store.critical))
-            Text(summaryNote(top) ?? "no usage yet")
+            Text(note ?? summaryNote(top) ?? "no usage yet")
                 .font(.system(size: 9))
                 .foregroundStyle(.secondary)
                 .lineLimit(3)
@@ -141,6 +144,11 @@ struct PanelView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
         .background(RoundedRectangle(cornerRadius: 10).fill(Color.primary.opacity(0.06)))
+    }
+
+    private func resetNote(_ meter: Meters.Meter?) -> String? {
+        guard let at = meter?.resetsAt else { return nil }
+        return "resets " + clock.string(from: at) + " " + Usage.offset
     }
 
     private func summaryNote(_ top: Usage.Top?) -> String? {
@@ -163,9 +171,9 @@ struct PanelView: View {
             }
 
             HStack(alignment: .top, spacing: 8) {
-                miniStat(store.data?.meters == nil ? "Last 5h" : "5-hour", model, .five)
-                miniStat("Week", model, .week)
-                miniStat("Month", model, .month)
+                miniStat(store.data?.meters == nil ? "Last 5h" : "5-hour", model.value(.five), Usage.cap(model, .five))
+                miniStat("Today", model.today, nil)
+                miniStat("All time", model.total, nil)
             }
 
             if let monthPct, store.data?.meters == nil {
@@ -180,8 +188,8 @@ struct PanelView: View {
                 .frame(height: 4)
             }
 
-            Text("\(model.requests) req this month · \(Usage.compact(model.input)) in · "
-                + "\(Usage.compact(model.output)) out · \(Usage.compact(model.cacheRead)) cache")
+            Text("\(Usage.compact(model.totalRequests)) req all time · \(Usage.compact(model.totalInput)) in · "
+                + "\(Usage.compact(model.totalOutput)) out · \(Usage.compact(model.totalCacheRead)) cache")
                 .font(.system(size: 10))
                 .foregroundStyle(.secondary)
         }
@@ -189,9 +197,7 @@ struct PanelView: View {
         .background(RoundedRectangle(cornerRadius: 9).fill(Color.primary.opacity(0.04)))
     }
 
-    private func miniStat(_ label: String, _ model: ModelUsage, _ period: Period) -> some View {
-        let value = model.value(period)
-        let cap = Usage.cap(model, period)
+    private func miniStat(_ label: String, _ value: Double, _ cap: Double?) -> some View {
         let pct = cap.map { value / $0 }
         // The console meter only knows account totals, so per-model cards show spend
         // rather than a percentage that would not add up to it.
@@ -215,12 +221,9 @@ struct PanelView: View {
             Text("Details").font(.system(size: 12, weight: .semibold))
             // Local midnight, not the console's window, so name the boundary.
             detailRow("Today (00:00 \(Usage.offset))", Usage.money(data.today))
-            detailRow("Month requests", String(data.monthRequests))
-            detailRow(
-                "Month tokens",
-                "\(Usage.compact(data.input)) in · \(Usage.compact(data.output)) out · "
-                    + "\(Usage.compact(data.cacheRead)) cache"
-            )
+            // Lifetime, not "this month": the API clamps `since` to about three
+            // days, so any month figure would be a three-day total in disguise.
+            detailRow("All time", Usage.money(data.lifetimeTotal) + " · " + Usage.compact(data.lifetimeRequests) + " req")
             if let meter = data.meters?.five {
                 detailRow("5h resets", reset(meter))
                 // In metered mode every other time above is a future reset, so
@@ -273,8 +276,8 @@ struct PanelView: View {
                     HStack(spacing: 6) {
                         Text(name).font(.system(size: 10))
                         Spacer()
-                        if let model, model.month > 0 {
-                            Text(Usage.money(model.month)).font(.system(size: 10, weight: .medium))
+                        if let model, model.total > 0 {
+                            Text(Usage.money(model.total)).font(.system(size: 10, weight: .medium))
                             Text("/ \(Usage.money(limit ?? 0))").font(.system(size: 10)).foregroundStyle(.secondary)
                         } else {
                             Text("no usage").font(.system(size: 10)).foregroundStyle(.tertiary)

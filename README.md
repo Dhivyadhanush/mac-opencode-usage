@@ -135,7 +135,7 @@ limits and Go Teams is Go + $5 per model, so on those plans the printed limits
 no plan field in any API to detect it from, so the app does not guess.
 
 Below the model cards, **All 28 models** expands into the full list,
-alphabetical, with this month's spend and the model's limit; models you have not
+alphabetical, with all-time spend and the model's limit; models you have never
 touched read `no usage`. It is a plain list, not a picker.
 
 A model missing from the docs table has no limit to compare against, so it
@@ -177,12 +177,26 @@ which source is in use.
 2. Asks the local opencode server for the console meter
    (`opencode api GET /api/experimental/usage/limits`). If it has data, those
    percentages are what the bar shows.
-3. `GET /console/api/usage/models?since=…` for the 5h / week / month / today
-   windows, in parallel, following pagination. Filters `provider ==
-   "opencode-go"`, converts `totalCostMicroCents / 1e8` to USD, and compares
-   against the plan limits (5h cap = 20% of the limit, week 50%, month 100%).
-   These sums drive the per-model cards, and the bar only when step 2 has no
-   meter.
+3. `GET /console/api/usage/models?since=…` for the 5h and today windows, plus
+   one call with no `since` for lifetime totals. Filters `provider ==
+   "opencode-go"` and converts `totalCostMicroCents / 1e8` to USD. These sums
+   drive the per-model cards, and the bar only when step 2 has no meter.
+
+### Why there are no weekly or monthly dollar figures
+
+`since` is silently clamped: ask for 2 days back and you get the same numbers as
+for 7 days back, because the endpoint only retains roughly three days of detail.
+Measured on this account at one instant — `-1d` 2,651 requests, `-2d` 4,297,
+`-3d` 4,298, `-4d` … `-7d` 4,299 — a flat plateau, and the same for cost. So a
+week or month of spend cannot be queried at all, and anything labelled that way
+would just be a three-day total with the wrong name.
+
+What the API does serve is honest: the meter's percentages (step 2), the 5-hour
+and today windows (inside the retention), and lifetime totals (no `since`). The
+panel shows exactly those, and the Weekly and Monthly cards show the meter's
+reset time instead of a dollar figure. The console's own page shows a week of
+spend from a store the public API does not expose, which is why its dollar
+figure cannot be reproduced here.
 
 Window boundaries use the local calendar (Monday start), converted to UTC ISO
 for the `since` parameter — `since` must be a `Z` timestamp: the API rejects

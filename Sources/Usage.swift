@@ -14,6 +14,13 @@ struct ModelUsage: Identifiable {
     var week = 0.0
     var month = 0.0
     var today = 0.0
+    // Lifetime totals. The usage API clamps `since` to roughly three days, so
+    // week/month dollars cannot be queried; lifetime (no `since`) can.
+    var total = 0.0
+    var totalRequests = 0
+    var totalInput = 0
+    var totalOutput = 0
+    var totalCacheRead = 0
     var requests = 0
     var input = 0
     var output = 0
@@ -37,6 +44,8 @@ struct UsageData {
     var month = 0.0
     var today = 0.0
     var monthRequests = 0
+    var lifetimeTotal = 0.0
+    var lifetimeRequests = 0
     var input = 0
     var output = 0
     var cacheRead = 0
@@ -269,16 +278,23 @@ enum Usage {
         return nil
     }
 
-    static func models(since: Date, key: String) async throws -> [[String: Any]] {
+    // `since` nil asks for lifetime: the only range wider than the API's
+    // roughly three-day lookback cap.
+    static func models(since: Date?, key: String) async throws -> [[String: Any]] {
         var items: [[String: Any]] = []
         var page = 1
         while true {
             var components = URLComponents(string: api + "/usage/models")!
             components.queryItems = [
-                URLQueryItem(name: "since", value: iso.string(from: since)),
                 URLQueryItem(name: "pageSize", value: "100"),
                 URLQueryItem(name: "page", value: String(page)),
             ]
+            if let since {
+                components.queryItems?.insert(
+                    URLQueryItem(name: "since", value: iso.string(from: since)),
+                    at: 0
+                )
+            }
 
             let body = try await request(components.url!, key: key)
             items += body["items"] as? [[String: Any]] ?? []
@@ -367,6 +383,8 @@ enum Usage {
             .today: calendar.startOfDay(for: now),
         ]
 
+        async let lifetimeRows = models(since: nil, key: key)
+
         var windows: [Period: [[String: Any]]] = [:]
         try await withThrowingTaskGroup(of: (Period, [[String: Any]]).self) { group in
             for period in Period.allCases {
@@ -380,6 +398,24 @@ enum Usage {
             }
         }
         var data = aggregate(windows: windows, since: since)
+
+        // Lifetime rides along in the same refresh so the model list can show a
+        // figure the API actually serves for the range it claims.
+        var byId = Dictionary(uniqueKeysWithValues: data.models.map { ($0.id, $0) })
+        for item in try await lifetimeRows {
+            guard item["provider"] as? String == "opencode-go" else { continue }
+            let id = item["model"] as? String ?? "(unknown)"
+            var model = byId[id] ?? ModelUsage(id: id, limit: Limits.value(model: id))
+            model.total = (number(item["totalCostMicroCents"]) ?? 0) / 100_000_000
+            model.totalRequests = Int(number(item["totalRequests"]) ?? 0)
+            model.totalInput = Int(number(item["totalInputTokens"]) ?? 0)
+            model.totalOutput = Int(number(item["totalOutputTokens"]) ?? 0)
+            model.totalCacheRead = Int(number(item["totalCacheReadTokens"]) ?? 0)
+            byId[id] = model
+            data.lifetimeTotal += model.total
+            data.lifetimeRequests += model.totalRequests
+        }
+        data.models = byId.values.sorted { $0.total > $1.total }
         data.meters = metersFromCLI()
         return data
     }
@@ -390,9 +426,6 @@ enum Usage {
     // workspace's real meter (percent + reset time). Empty data means opencode
     // is not signed into a console workspace, so callers fall back to spending.
     static func metersFromCLI() -> Meters? {
-        // Test hook: NO_METER=1 pretends there is no console session, which is
-        // how the fallback view gets exercised without signing out.
-        if ProcessInfo.processInfo.environment["NO_METER"] != nil { return nil }
         return meters(from: cliJSON())
     }
 
@@ -454,6 +487,7 @@ enum Usage {
             }
         }
         lines.append("today \(money(data.today))")
+        lines.append("all time \(money(data.lifetimeTotal)) · \(data.lifetimeRequests) req")
         lines.append("limits \(Limits.count) models (\(Limits.isDynamic ? "docs" : "bundled"))")
         if let meter = data.meters?.five {
             lines.append("5h meter: \(percent(meter.value(.five))) from the console, resets \(meter.resetsAt?.description ?? "unknown")")
@@ -463,16 +497,16 @@ enum Usage {
         for model in data.models {
             lines.append(
                 "  \(model.id) limit \(model.limit.map(money) ?? "unlimited") "
-                    + "5h \(money(model.five)) week \(money(model.week)) month \(money(model.month))"
+                    + "5h \(money(model.five)) total \(money(model.total)) \(model.totalRequests) req"
             )
         }
         // The panel's "All models" list is labelled with docs display names, so
         // dump the same join: a docs name that fails to find its API id shows
         // up here as a missing row instead of "no usage" in the UI.
         let listed = Limits.models().compactMap { name -> String? in
-            guard let model = spend(data, name: name), model.month > 0 else { return nil }
+            guard let model = spend(data, name: name), model.total > 0 else { return nil }
             let limit = Limits.value(model: name).map(money) ?? "-"
-            return "  \(name) \(money(model.month)) of \(limit)"
+            return "  \(name) \(money(model.total)) of \(limit)"
         }
         if !listed.isEmpty {
             lines.append("model list rows with spend:")

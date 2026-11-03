@@ -66,6 +66,13 @@ enum SelfTest {
         check(data.input == 2913536, "input tokens")
         check(data.cacheWrite == 3000, "cache write = 5m + 1h")
 
+        // Lifetime totals come from a separate query without `since`, because
+        // the usage API clamps older windows to roughly three days.
+        var withLifetime = data
+        withLifetime.lifetimeTotal = 12.5
+        withLifetime.lifetimeRequests = 1234
+        check(Usage.describe(withLifetime).contains("all time $12.5 · 1234 req"), "lifetime line in dump")
+
         // Sorted by month-of-limit: 50/100 = 50%, then 15/15 = 100% would win,
         // so check the 100% model comes first.
         check(data.models.first?.id == "glm-5.3", "sorts by monthly utilization")
