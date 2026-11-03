@@ -5,32 +5,63 @@
 A macOS menu bar app that shows what your OpenCode **Go** plan is using, right
 now. Port of the Noctalia plugin from my dotfiles.
 
-The menu bar shows the gauge and three figures — `H 2% W 13% M 10%` — where
-**H** is the last 5 hours, **W** the current week (Monday start) and
-**M** the calendar month. H is a rolling sum, not the console's resetting
-5-hour meter, so it can disagree with the console right after a reset. Any
-combination can be turned off in settings. Click for per-model spend, requests
-and tokens.
+The menu bar shows the gauge and three figures — `H 5% W 13% M 14%` — the
+same percentages the console dashboard shows, with the console's own reset
+times. Any combination can be turned off in settings; click for per-model
+spend, requests and tokens.
+
+The figures come from the console's meter when opencode is signed in to a
+console workspace, and fall back to sums of the usage API otherwise (see
+[The 5-hour figure](#the-5-hour-figure)).
 
 ## Requirements
 
 - macOS 14 or newer.
-- opencode installed (`brew install sst/tap/opencode`) and signed in to a Go
-  plan. The app asks the CLI for the credential with `opencode auth export` and
-  keeps nothing of its own: no key is stored, there is no login screen, and if
-  the key is missing or expired the panel points at `opencode auth login`.
+- opencode installed and signed in to a Go plan. The app asks the CLI for the
+  credential (`opencode auth export`) and keeps nothing of its own: no key
+  store, no login screen. If the key is missing or expired, the panel says so
+  and points at `opencode auth login`.
 
-## Install
+## First-time setup
+
+Steps 2 and 4 are interactive by design: one pastes a key, the other approves a
+device code in the browser.
 
 ```shell
+# 1. the CLI, which holds the credentials this app reads
+brew install sst/tap/opencode
+
+# 2. your OpenCode Go key — pick "OpenCode Go", paste the key from
+#    https://opencode.ai/console (Settings → API keys)
+opencode auth login
+
+# 3. the app (cask lives in Myleshen/homebrew-tap)
 brew tap Myleshen/tap
 brew install --cask opencode-usage
+open /Applications/OpenCodeUsage.app
+
+# 4. recommended: link the console workspace, which is where the real
+#    5-hour / weekly / monthly meters and reset times come from
+opencode auth login "OpenCode Console" --method device
 ```
 
-The cask lives in [Myleshen/homebrew-tap](https://github.com/Myleshen/homebrew-tap)
-(alongside my other casks). `brew upgrade` picks up new releases from there.
+Step 4 prints a code and a URL — open the URL, enter the code, approve. Then
+check which source the app is using:
 
-Or download `OpenCodeUsage.zip` from the latest release and drag the app out.
+```shell
+/Applications/OpenCodeUsage.app/Contents/MacOS/OpenCodeUsage --limits
+```
+
+Real meter data means the panel shows `5-hour` with a `5h resets …` row.
+`{"data":null}` means step 4 did not complete, and the app falls back to rolling
+sums — still correct, just not the console's own numbers.
+
+Finally, click the menu bar gauge → gear → **Launch at login**.
+
+Because the cask tracks `version :latest`, use
+`brew reinstall --cask opencode-usage` to move to a new release; `brew upgrade`
+sees a cached artifact and does nothing. You can also download
+`OpenCodeUsage.zip` from the latest release and drag the app out by hand.
 
 ### Ad-hoc signing (first launch)
 
