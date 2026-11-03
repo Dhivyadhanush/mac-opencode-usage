@@ -78,6 +78,7 @@ struct OpenCodeUsageApp: App {
     // Verifies the whole fetch path without a GUI: ./OpenCodeUsage --dump
     private static func dump() -> Never {
         Task.detached {
+            await Limits.refreshIfStale()
             do {
                 let data = try await Usage.fetch()
                 print(Usage.describe(data))

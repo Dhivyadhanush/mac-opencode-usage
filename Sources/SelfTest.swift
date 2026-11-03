@@ -130,6 +130,35 @@ enum SelfTest {
         check(Limits.value(model: "deepseek-v4.1-flash") == 100, "go limit")
         check(Limits.value(model: "nope") == nil, "unknown model has no limit")
 
+        // Docs names and API ids must land on the same key, or a fetched table
+        // would never match the model ids the usage API returns.
+        check(Limits.value(model: "DeepSeek V4.1 Flash") == Limits.value(model: "deepseek-v4.1-flash"),
+              "docs name matches API id")
+        check(Limits.normalize("Qwen3.8 Max (≤ 512K tokens)") == "qwen3-8-max", "variants share a key")
+
+        // The docs table is fetched, so parse a slice shaped like the real page.
+        let fixture = """
+        <PlanTabs id="go-pricing" value="go">
+        <div slot="go">
+
+        | Model | Input | Output | Cached Read | Cached Write | Monthly limit |
+        | --- | --- | --- | --- | --- | --- |
+        | DeepSeek V4.1 Flash (Off-Peak) | $0.14 | $0.28 | $0.0028 | $0.14 | **$100** |
+        | DeepSeek V4.1 Flash (Peak) | $0.28 | $0.56 | $0.0056 | $0.28 | **$100** |
+        | Beam Free | $0 | $0 | $0 | $0 | **Unlimited**<br /><small>limited time</small> |
+        </div>
+        <div slot="go-plus">
+        | Model | Monthly limit |
+        | --- | --- |
+        | DeepSeek V4.1 Flash | **$200** |
+        </div>
+        </PlanTabs>
+        """
+        let parsed = Limits.parse(fixture)
+        check(parsed.count == 1, "one model after variants are merged and Unlimited is skipped")
+        check(parsed["deepseek-v4-1-flash"]?.limit == 100, "parsed limit from the go slot")
+        check(parsed["deepseek-v4-1-flash"]?.name == "DeepSeek V4.1 Flash", "parenthetical stripped from the name")
+
         // Version comparison for the update nudge.
         check(UpdateCheck.newer(latest: "v1.0.13", current: "1.0.12"), "newer patch")
         check(UpdateCheck.newer(latest: "v1.1.0", current: "1.0.13"), "newer minor")

@@ -79,45 +79,6 @@ struct Meters {
 }
 
 
-enum Limits {
-    // Monthly limits for the Go plan, from https://opencode.ai/docs/go/.
-    // A model missing here has no percentage, only spend.
-    static let go: [String: Double] = [
-        "glm-5.3-flash": 60,
-        "glm-5.3": 15,
-        "glm-5.2": 60,
-        "kimi-k3.1-pro": 15,
-        "kimi-k3": 15,
-        "kimi-k2.7-code": 60,
-        "longcat-2.0": 60,
-        "step-5-preview": 15,
-        "mimo-v2.6-flash": 60,
-        "mimo-v2.6-pro": 15,
-        "mimo-v2.5": 60,
-        "mimo-v2.5-pro": 15,
-        "minimax-m3.1-flash": 20,
-        "minimax-m3": 60,
-        "muse-spark-1.3-contributor": 60,
-        "muse-spark-1.2-contributor": 60,
-        "qwen3.8-max": 15,
-        "qwen3.8-flash": 30,
-        "qwen3.7-plus": 60,
-        "deepseek-v4.1-flash": 100,
-        "deepseek-v4-pro": 15,
-        "hy4-preview": 30,
-        "hy3": 60,
-        "grok-4.7": 15,
-        "gpt-6-luna": 15,
-        "gpt-5.6-luna": 15,
-        "claude-haiku-5-5": 15,
-        "gemini-4-argon": 30,
-    ]
-
-    static func value(model: String) -> Double? { go[model] }
-
-    static func models() -> [String] { go.keys.sorted() }
-}
-
 enum Usage {
     struct Failure: LocalizedError {
         let message: String
@@ -484,6 +445,7 @@ enum Usage {
             }
         }
         lines.append("today \(money(data.today))")
+        lines.append("limits \(Limits.count) models (\(Limits.isDynamic ? "docs" : "bundled"))")
         if let meter = data.meters?.five {
             lines.append("5h meter: \(percent(meter.value(.five))) from the console, resets \(meter.resetsAt?.description ?? "unknown")")
         } else {

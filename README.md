@@ -124,8 +124,13 @@ magnitude. The app therefore always shows every principal the key can see.
 
 ## Plans and the model list
 
-The built-in table covers **Go** only: the 28 models and their monthly limits,
-copied from <https://opencode.ai/docs/go/>. Go Plus has substantially higher
+The limits are read from the pricing table on
+<https://opencode.ai/docs/go/> rather than compiled in, so a model added by
+OpenCode shows up on the next refresh instead of waiting for an app release.
+The page is fetched once a day (and on any refresh when the cache is older than
+that), parsed for the `go` slot, and cached in `UserDefaults`; a copy of the
+current 28-model table is bundled as the offline fallback, which `--dump` names
+(`limits 28 models (docs)` or `(bundled)`). Go Plus has substantially higher
 limits and Go Teams is Go + $5 per model, so on those plans the printed limits
 (and any percentage computed without a console session) will be low. There is
 no plan field in any API to detect it from, so the app does not guess.
@@ -134,8 +139,9 @@ Below the model cards, **All 28 models** expands into the full list,
 alphabetical, with this month's spend and the model's limit; models you have not
 touched read `no usage`. It is a plain list, not a picker.
 
-A model added after this build has no limit to compare against, so it shows
-"no limit data" and a banner, while spend and request counts keep updating.
+A model missing from the docs table has no limit to compare against, so it
+shows "no limit data" and a banner, while spend and request counts keep
+updating.
 
 ## Where the percentages come from
 

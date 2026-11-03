@@ -62,6 +62,9 @@ final class Store: ObservableObject {
         busy = true
         defer { busy = false }
 
+        // Model limits come from the docs page; the daily cache keeps this cheap.
+        await Limits.refreshIfStale()
+
         do {
             data = try await Usage.fetch()
             error = nil
