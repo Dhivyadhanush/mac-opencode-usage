@@ -106,8 +106,7 @@ struct PanelView: View {
             Text(top.map { Usage.percent($0.pct) } ?? "—")
                 .font(.system(size: 20, weight: .bold))
                 .foregroundStyle(usageColor(top?.pct, warning: store.warning, critical: store.critical))
-            Text(top.map { "\(Usage.money($0.value)) / \(Usage.money($0.cap)) · \($0.model.id)" }
-                ?? "no usage yet")
+            Text(summaryNote(top) ?? "no usage yet")
                 .font(.system(size: 9))
                 .foregroundStyle(.secondary)
                 .lineLimit(3)
@@ -116,6 +115,12 @@ struct PanelView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
         .background(RoundedRectangle(cornerRadius: 10).fill(Color.primary.opacity(0.06)))
+    }
+
+    private func summaryNote(_ top: Usage.Top?) -> String? {
+        guard let top else { return nil }
+        if store.data?.meters != nil { return "\(Usage.money(top.value)) · \(top.model.id)" }
+        return "\(Usage.money(top.value)) / \(Usage.money(top.cap)) · \(top.model.id)"
     }
 
     private func modelCard(_ model: ModelUsage) -> some View {
@@ -137,7 +142,7 @@ struct PanelView: View {
                 miniStat("Month", model, .month)
             }
 
-            if let monthPct {
+            if let monthPct, store.data?.meters == nil {
                 GeometryReader { geometry in
                     ZStack(alignment: .leading) {
                         Capsule().fill(Color.primary.opacity(0.12))
@@ -162,13 +167,16 @@ struct PanelView: View {
         let value = model.value(period)
         let cap = Usage.cap(model, period)
         let pct = cap.map { value / $0 }
+        // The console meter only knows account totals, so per-model cards show spend
+        // rather than a percentage that would not add up to it.
+        let metered = store.data?.meters != nil
 
         return VStack(alignment: .leading, spacing: 1) {
             Text(label).font(.system(size: 9)).foregroundStyle(.secondary)
-            Text(pct.map(Usage.percent) ?? "—")
+            Text(metered ? Usage.money(value) : (pct.map(Usage.percent) ?? "—"))
                 .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(usageColor(pct, warning: store.warning, critical: store.critical))
-            Text(cap.map { "\(Usage.money(value)) / \(Usage.money($0))" } ?? "\(Usage.money(value)) · no limit data")
+                .foregroundStyle(metered ? .primary : usageColor(pct, warning: store.warning, critical: store.critical))
+            Text(metered ? "spent" : (cap.map { "\(Usage.money(value)) / \(Usage.money($0))" } ?? "\(Usage.money(value)) · no limit data"))
                 .font(.system(size: 9))
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
