@@ -189,7 +189,6 @@ struct PanelView: View {
             detailRow("5h starts", clock.string(from: data.fiveSinceAt) + " " + Usage.offset)
             detailRow("5h ends", clock.string(from: data.updatedAt) + " " + Usage.offset)
             detailRow("Source", "console usage API")
-            detailRow("Updated", clock.string(from: data.updatedAt) + " " + Usage.offset)
         }
     }
 
