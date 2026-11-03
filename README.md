@@ -243,3 +243,14 @@ Then bump the cask in [Myleshen/homebrew-tap](https://github.com/Myleshen/homebr
 printed in the release notes). That pinned version is what lets users move
 forward with `brew upgrade --cask opencode-usage`; skip it and the tap keeps
 serving the old build.
+
+Homebrew reads its own clone of the tap
+(`$(brew --repository)/Library/Taps/<user>/homebrew-tap`), not your working
+copy, so pull that clone before verifying an install — otherwise `brew upgrade`
+reinstalls the previous version and everything looks like a bad build:
+
+```shell
+git -C "$(brew --repository)/Library/Taps/myleshen/homebrew-tap" pull origin main
+brew upgrade --cask opencode-usage
+plutil -p /Applications/OpenCodeUsage.app/Contents/Info.plist | grep ShortVersion
+```
