@@ -62,7 +62,7 @@ struct PanelView: View {
     private var content: some View {
         if let data = store.data {
             HStack(spacing: 10) {
-                summaryCard("Last 5h", Usage.top(data, .five))
+                summaryCard(data.meters == nil ? "Last 5h" : "5-hour", Usage.top(data, .five))
                 summaryCard("Weekly", Usage.top(data, .week))
                 summaryCard("Monthly", Usage.top(data, .month))
             }
@@ -132,7 +132,7 @@ struct PanelView: View {
             }
 
             HStack(alignment: .top, spacing: 8) {
-                miniStat("Last 5h", model, .five)
+                miniStat(store.data?.meters == nil ? "Last 5h" : "5-hour", model, .five)
                 miniStat("Week", model, .week)
                 miniStat("Month", model, .month)
             }
@@ -186,10 +186,22 @@ struct PanelView: View {
                 "\(Usage.compact(data.input)) in · \(Usage.compact(data.output)) out · "
                     + "\(Usage.compact(data.cacheRead)) cache"
             )
-            detailRow("5h starts", clock.string(from: data.fiveSinceAt) + " " + Usage.offset)
-            detailRow("5h ends", clock.string(from: data.updatedAt) + " " + Usage.offset)
-            detailRow("Source", "console usage API")
+            if let meter = data.meters?.five {
+                detailRow("5h resets", reset(meter))
+                detailRow("Source", "console meter")
+            } else {
+                // No console workspace linked: these are the edges of a rolling
+                // sum, not a reset time.
+                detailRow("5h starts", clock.string(from: data.fiveSinceAt) + " " + Usage.offset)
+                detailRow("5h ends", clock.string(from: data.updatedAt) + " " + Usage.offset)
+                detailRow("Source", "console usage API")
+            }
         }
+    }
+
+    private func reset(_ meter: Meters.Meter) -> String {
+        guard let at = meter.resetsAt else { return "unknown" }
+        return clock.string(from: at) + " " + Usage.offset
     }
 
     private func detailRow(_ label: String, _ value: String) -> some View {

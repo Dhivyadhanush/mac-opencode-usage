@@ -85,6 +85,31 @@ enum SelfTest {
         check(Usage.offset.count == 6 && Usage.offset.hasPrefix("+") == (TimeZone.current.secondsFromGMT() >= 0), "offset format")
         check(Usage.offset.dropFirst().contains(":"), "offset has minutes")
 
+        // The console meter is authoritative when opencode has a linked
+        // workspace: parse percents and the reset instant, ignore everything else.
+        let meterJSON = Data("""
+        {"data":{"go":{"rolling":{"percent":37,"limited":false,"resetsAt":1762340000000},
+        "weekly":{"percent":63.5,"limited":false},
+        "monthly":{"percent":100,"limited":true,"resetsAt":1762400000000}},"budgets":[]}}
+        """.utf8)
+        let meters = Usage.meters(from: meterJSON)
+        check(meters?.five.percent == 37, "meter rolling percent")
+        check(meters?.week.percent == 63.5, "meter weekly percent")
+        check(meters?.five.resetsAt == Date(timeIntervalSince1970: 1_762_340_000), "meter resetsAt ms")
+        check(meters?.week.resetsAt == nil, "missing resetsAt is nil")
+        check(meters?.meter(.today) == nil, "today has no meter")
+
+        var metered = Usage.aggregate(
+            windows: [.five: five, .week: week, .month: month, .today: []],
+            since: since,
+            plan: "go"
+        )
+        metered.meters = meters
+        check(abs((Usage.top(metered, .five)?.pct ?? 0) - 0.37) < 0.0001, "meter percent wins over spend")
+        check(abs((Usage.top(data, .five)?.pct ?? 0) - 0.1) < 0.0001, "no meter falls back to spend")
+        check(Usage.meters(from: Data("{\"data\":null}".utf8)) == nil, "null data is no meter")
+        check(Usage.meters(from: Data("{}".utf8)) == nil, "missing go is no meter")
+
         let weekStart = Usage.weekStart(now)
         check(Usage.calendar.component(.weekday, from: weekStart) == 2, "week starts Monday")
         check(Usage.calendar.component(.hour, from: weekStart) == 0, "week starts at midnight")

@@ -48,7 +48,34 @@ struct UsageData {
     var weekSinceAt = Date()
     var monthSinceAt = Date()
     var todaySinceAt = Date()
+    // Percentages straight from the console's own meters, when opencode has a
+    // linked console workspace. nil means the console API numbers are used.
+    var meters: Meters?
 }
+
+// UsageLimits.Go from opencode's server: the numbers the console itself shows.
+struct Meters {
+    struct Meter {
+        let percent: Double
+        let resetsAt: Date?
+
+        func value(_ period: Period) -> Double { percent / 100 }
+    }
+
+    var five: Meter
+    var week: Meter
+    var month: Meter
+
+    func meter(_ period: Period) -> Meter? {
+        switch period {
+        case .five: return five
+        case .week: return week
+        case .month: return month
+        case .today: return nil
+        }
+    }
+}
+
 
 enum Limits {
     // Lifted from the Luau plugin. Only `go` is supported; add the other plan
@@ -142,6 +169,20 @@ enum Usage {
 
     static func top(_ data: UsageData?, _ period: Period) -> Top? {
         guard let data else { return nil }
+        // The console's meter wins when there is one: its window boundary is the
+        // one the user sees in the browser, which the spend sums cannot recover.
+        if let meter = data.meters?.meter(period) {
+            let best = data.models
+                .filter { cap($0, period) != nil }
+                .max { $0.value(period) < $1.value(period) }
+            let model = best ?? ModelUsage(id: "account")
+            return Top(
+                model: model,
+                pct: meter.value(period),
+                value: best?.value(period) ?? 0,
+                cap: best.flatMap { cap($0, period) } ?? 0
+            )
+        }
         var best: Top?
         for model in data.models {
             guard let cap = cap(model, period), cap > 0 else { continue }
@@ -369,7 +410,50 @@ enum Usage {
                 windows[period] = items
             }
         }
-        return aggregate(windows: windows, since: since, plan: plan)
+        var data = aggregate(windows: windows, since: since, plan: plan)
+        data.meters = metersFromCLI()
+        return data
+    }
+
+    // MARK: - Console meters
+
+    // `opencode api` talks to the local server, which knows the console
+    // workspace's real meter (percent + reset time). Empty data means opencode
+    // is not signed into a console workspace, so callers fall back to spending.
+    static func metersFromCLI() -> Meters? { meters(from: cliJSON()) }
+
+    static func meters(from data: Data) -> Meters? {
+        guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let info = root["data"] as? [String: Any],
+              let go = info["go"] as? [String: Any]
+        else { return nil }
+
+        func meter(_ key: String) -> Meters.Meter? {
+            guard let raw = go[key] as? [String: Any],
+                  let percent = number(raw["percent"])
+            else { return nil }
+            let resets = number(raw["resetsAt"]).map { Date(timeIntervalSince1970: $0 / 1000) }
+            return Meters.Meter(percent: percent, resetsAt: resets)
+        }
+
+        guard let five = meter("rolling"), let week = meter("weekly"), let month = meter("monthly") else {
+            return nil
+        }
+        return Meters(five: five, week: week, month: month)
+    }
+
+    static func cliJSON() -> Data {
+        guard let cli = opencodeCLI() else { return Data() }
+        let process = Process()
+        process.executableURL = cli
+        process.arguments = ["api", "GET", "/api/experimental/usage/limits"]
+        let output = Pipe()
+        process.standardOutput = output
+        process.standardError = Pipe()
+        guard (try? process.run()) != nil else { return Data() }
+        let data = output.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        return data
     }
 
     // MARK: - Debug dump
@@ -384,7 +468,11 @@ enum Usage {
             }
         }
         lines.append("today \(money(data.today))")
-        lines.append("5h starts \(iso.string(from: data.fiveSinceAt)) ends \(iso.string(from: data.updatedAt))")
+        if let meter = data.meters?.five {
+            lines.append("5h meter: \(percent(meter.value(.five))) from the console, resets \(meter.resetsAt?.description ?? "unknown")")
+        } else {
+            lines.append("5h starts \(iso.string(from: data.fiveSinceAt)) ends \(iso.string(from: data.updatedAt)) (rolling sum)")
+        }
         for model in data.models {
             lines.append(
                 "  \(model.id) limit \(model.limit.map(money) ?? "unlimited") "

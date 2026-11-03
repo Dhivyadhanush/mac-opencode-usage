@@ -92,6 +92,23 @@ this build) there is no limit to compare against, so the panel shows
 "no limit data" and a banner, while spend and request counts keep updating.
 Adding `go_plus` / `go_teams` limits to `Sources/Usage.swift` would fix that.
 
+## The 5-hour figure
+
+Two sources, in this order:
+
+1. **The console's own meter** — `opencode api GET /api/experimental/usage/limits`
+   returns `go.rolling` as `{percent, limited, resetsAt}`. That is the number the
+   console dashboard shows, with the real window boundary, so the app uses it
+   whenever it is there. Requires opencode to be signed into a console workspace
+   (`account` / `workspace` tables populated); the details row then reads
+   `5h resets 19:45 +05:30`.
+2. **A rolling five-hour sum** of the console usage API, if that meter is absent.
+   Then the panel labels the card `Last 5h` and shows the window start and end
+   instead of a reset time, because a rolling sum has no future boundary.
+
+`./OpenCodeUsage --limits` prints the raw meter response, which is how to tell
+which source is in use.
+
 ## How it works
 
 1. Asks the CLI for the active Go credential (`opencode auth export`) rather
