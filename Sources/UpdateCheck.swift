@@ -23,18 +23,6 @@ enum UpdateCheck {
             .map { Int($0.prefix(while: \.isNumber)) ?? 0 }
     }
 
-    // Blocking variant for the --update CLI path.
-    static func fetchLatestSync() -> String? {
-        let semaphore = DispatchSemaphore(value: 0)
-        var tag: String?
-        Task {
-            tag = await fetchLatest()
-            semaphore.signal()
-        }
-        _ = semaphore.wait(timeout: .now() + 15)
-        return tag
-    }
-
     static func fetchLatest() async -> String? {
         guard let url = URL(string: "https://api.github.com/repos/\(repo)/releases/latest") else {
             return nil

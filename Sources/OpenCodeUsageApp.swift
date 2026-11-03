@@ -61,14 +61,18 @@ struct OpenCodeUsageApp: App {
 
     private static func update() -> Never {
         let current = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
-        guard let tag = UpdateCheck.fetchLatestSync() else {
-            print("v\(current) · could not reach GitHub")
-            exit(1)
+        Task.detached {
+            guard let tag = await UpdateCheck.fetchLatest() else {
+                print("v\(current) · could not reach GitHub")
+                exit(1)
+            }
+            print(UpdateCheck.newer(latest: tag, current: current)
+                  ? "v\(current) · \(tag) available (brew reinstall --cask opencode-usage)"
+                  : "v\(current) · up to date")
+            exit(0)
         }
-        print(UpdateCheck.newer(latest: tag, current: current)
-              ? "v\(current) · \(tag) available (brew reinstall --cask opencode-usage)"
-              : "v\(current) · up to date")
-        exit(0)
+        RunLoop.main.run()
+        exit(1)
     }
 
     // Verifies the whole fetch path without a GUI: ./OpenCodeUsage --dump

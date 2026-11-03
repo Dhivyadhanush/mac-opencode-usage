@@ -420,7 +420,9 @@ enum Usage {
     // workspace's real meter (percent + reset time). Empty data means opencode
     // is not signed into a console workspace, so callers fall back to spending.
     static func metersFromCLI() -> Meters? {
-        if ProcessInfo.processInfo.environment["NO_METER"] != nil { return nil } // TEMP
+        // Test hook: NO_METER=1 pretends there is no console session, which is
+        // how the fallback view gets exercised without signing out.
+        if ProcessInfo.processInfo.environment["NO_METER"] != nil { return nil }
         return meters(from: cliJSON())
     }
 
