@@ -12,7 +12,7 @@ spend, requests and tokens.
 
 The figures come from the console's meter when opencode is signed in to a
 console workspace, and fall back to sums of the usage API otherwise (see
-[The 5-hour figure](#the-5-hour-figure)).
+[Where the percentages come from](#where-the-percentages-come-from)).
 
 ## Requirements
 
@@ -109,6 +109,7 @@ Open the panel, click the gear.
 | Warn / critical | 80% / 95% | Panel color and warning triangle. |
 | Menu bar | H + W + M | Which figures to show. |
 | Launch at login | off | Writes and registers `~/Library/LaunchAgents/dev.myleshen.opencode-usage.plist`. |
+| Quit | — | Button at the bottom of settings; a MenuBarExtra has no Quit item of its own. |
 
 ### One scope only
 
@@ -123,7 +124,7 @@ this build) there is no limit to compare against, so the panel shows
 "no limit data" and a banner, while spend and request counts keep updating.
 Adding `go_plus` / `go_teams` limits to `Sources/Usage.swift` would fix that.
 
-## The 5-hour figure
+## Where the percentages come from
 
 Two sources, in this order:
 
@@ -131,8 +132,11 @@ Two sources, in this order:
    returns `go.rolling` as `{percent, limited, resetsAt}`. That is the number the
    console dashboard shows, with the real window boundary, so the app uses it
    whenever it is there. Requires opencode to be signed into a console workspace
-   (`account` / `workspace` tables populated); the details row then reads
-   `5h resets 19:45 +05:30`.
+   (`account` / `workspace` tables populated by the device sign-in above); the
+   details row then reads `5h resets 19:45 +05:30`. All three figures come from
+   the same payload, whose boundaries are not the ones you would guess: the
+   weekly window resets Monday **00:00 UTC**, and the monthly window is a
+   rolling ~30 days, not the calendar month.
 2. **A rolling five-hour sum** of the console usage API, if that meter is absent.
    Then the panel labels the card `Last 5h` and shows the window start and end
    instead of a reset time, because a rolling sum has no future boundary.
@@ -146,11 +150,15 @@ which source is in use.
    than reading opencode's sqlite file, so a schema change cannot break it. The
    key never leaves the machine except as the `Authorization` header to
    `opencode.ai`.
-2. `GET /console/api/usage/models?since=…` for the 5h / week / month / today
-   windows, in parallel, following pagination.
-3. Filters `provider == "opencode-go"`, converts `totalCostMicroCents / 1e8` to
-   USD, and compares against the plan limits (5h cap = 20% of the limit, week
-   50%, month 100%).
+2. Asks the local opencode server for the console meter
+   (`opencode api GET /api/experimental/usage/limits`). If it has data, those
+   percentages are what the bar shows.
+3. `GET /console/api/usage/models?since=…` for the 5h / week / month / today
+   windows, in parallel, following pagination. Filters `provider ==
+   "opencode-go"`, converts `totalCostMicroCents / 1e8` to USD, and compares
+   against the plan limits (5h cap = 20% of the limit, week 50%, month 100%).
+   These sums drive the per-model cards, and the bar only when step 2 has no
+   meter.
 
 Window boundaries use the local calendar (Monday start), converted to UTC ISO
 for the `since` parameter — `since` must be a `Z` timestamp: the API rejects
@@ -165,14 +173,30 @@ this Mac's timezone.
   it is running from, so the login item keeps working.
 - Launching the app twice is safe: the newer copy exits and the older one keeps
   the menu bar item, so the login item cannot produce a duplicate.
-- No Quit menu item — `pkill -f OpenCodeUsage` or delete the app.
+- There is no Quit item in the menu itself (MenuBarExtra limitation): use the
+  gear → **Quit**, or `pkill -f OpenCodeUsage`.
+- Per-model cards show spend, not percentages, whenever the console meter is in
+  use: the meter is account-level and has no per-model split, so per-model
+  percentages would not add up to it.
 - Uninstall: `brew uninstall --cask opencode-usage` (it also removes the
   LaunchAgent and quits the app). `brew uninstall --zap` also drops the lock
   file.
+
+## Troubleshooting
+
+| Symptom | Cause / fix |
+| --- | --- |
+| `No OpenCode Go credential found` | Nothing for the `opencode-go` integration: `opencode auth login`, pick OpenCode Go. |
+| `The OpenCode Go key was rejected (HTTP 401)` | Key expired or rotated: re-run `opencode auth login`. |
+| Panel says `Last 5h` instead of `5-hour` | No console session, so `--limits` returns `{"data":null}`: re-run the device sign-in. |
+| `no limit data` on every card | Plan other than `go`, or a model newer than the built-in table. Spend still works. |
+| Gatekeeper says the app is damaged | Quarantine flag: `xattr -dr com.apple.quarantine /Applications/OpenCodeUsage.app`. |
+| Menu bar shows two gauges | Stale copy holding no lock file — remove the other `OpenCodeUsage.app`, keep one. |
 
 ## Releasing
 
 `.github/workflows/release.yml` builds a universal app, runs the self-test, zips
 it and publishes `OpenCodeUsage.zip` on a `v*` tag. The cask installs from
 `releases/latest/download/OpenCodeUsage.zip`, so a new tag is enough for
-`brew upgrade`.
+installers — but because the cask tracks `version :latest`, users move to it
+with `brew reinstall --cask opencode-usage`, not `brew upgrade`.
