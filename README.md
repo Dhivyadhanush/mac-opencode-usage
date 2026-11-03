@@ -58,9 +58,8 @@ sums — still correct, just not the console's own numbers.
 
 Finally, click the menu bar gauge → gear → **Launch at login**.
 
-Because the cask tracks `version :latest`, use
-`brew reinstall --cask opencode-usage` to move to a new release; `brew upgrade`
-sees a cached artifact and does nothing. You can also download
+Move to a new release with `brew upgrade --cask opencode-usage`; the cask is
+pinned to a tagged version, so Homebrew sees the bump. You can also download
 `OpenCodeUsage.zip` from the latest release and drag the app out by hand.
 
 ### Ad-hoc signing (first launch)
@@ -218,12 +217,15 @@ this Mac's timezone.
 | Gatekeeper says the app is damaged | Quarantine flag: `xattr -dr com.apple.quarantine /Applications/OpenCodeUsage.app`. |
 | Menu bar shows two gauges | Stale copy holding no lock file — remove the other `OpenCodeUsage.app`, keep one. |
 | Banner says **No console session** | The device sign-in lapsed or was never done: `opencode auth login "OpenCode Console" --method device`, then refresh. |
-| Settings footer names a newer version | `brew reinstall --cask opencode-usage` — `brew upgrade` is a no-op for this cask. |
+| Settings footer names a newer version | `brew upgrade --cask opencode-usage`. |
 
 ## Releasing
 
 `.github/workflows/release.yml` builds a universal app, runs the self-test, zips
-it and publishes `OpenCodeUsage.zip` on a `v*` tag. The cask installs from
-`releases/latest/download/OpenCodeUsage.zip`, so a new tag is enough for
-installers — but because the cask tracks `version :latest`, users move to it
-with `brew reinstall --cask opencode-usage`, not `brew upgrade`.
+it and publishes `OpenCodeUsage.zip` on a `v*` tag.
+
+Then bump the cask in [Myleshen/homebrew-tap](https://github.com/Myleshen/homebrew-tap):
+`version "<tag without v>"` and `sha256` of the published asset (the hash is
+printed in the release notes). That pinned version is what lets users move
+forward with `brew upgrade --cask opencode-usage`; skip it and the tap keeps
+serving the old build.
