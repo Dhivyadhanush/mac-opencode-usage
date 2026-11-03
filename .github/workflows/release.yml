@@ -1,0 +1,40 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build universal app
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}" BUILD="$GITHUB_RUN_NUMBER" ARCHS="arm64 x86_64" ./build.sh
+          ./build/OpenCodeUsage.app/Contents/MacOS/OpenCodeUsage --selftest
+          lipo -archs build/OpenCodeUsage.app/Contents/MacOS/OpenCodeUsage
+
+      - name: Zip app
+        run: |
+          cd build
+          ditto -c -k --sequesterRsrc --keepParent OpenCodeUsage.app OpenCodeUsage.zip
+          shasum -a 256 OpenCodeUsage.zip | tee ../sha256.txt
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "${GITHUB_REF_NAME#v}" \
+            --generate-notes \
+            --notes-file - build/OpenCodeUsage.zip <<NOTES
+          Unsigned build: right-click > Open the first time, or install with
+          \`brew install --cask ./Casks/opencode-usage.rb\`.
+
+          sha256: $(cut -d' ' -f1 sha256.txt)
+          NOTES
