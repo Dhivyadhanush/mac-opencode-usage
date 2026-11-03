@@ -24,16 +24,26 @@ enum UpdateCheck {
     }
 
     static func fetchLatest() async -> String? {
+        guard let request = latestRequest() else { return nil }
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+        return parse(data)
+    }
+
+    private static func latestRequest() -> URLRequest? {
         guard let url = URL(string: "https://api.github.com/repos/\(repo)/releases/latest") else {
             return nil
         }
         var request = URLRequest(url: url)
         request.timeoutInterval = 10
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-        guard let (data, response) = try? await URLSession.shared.data(for: request),
-              (response as? HTTPURLResponse)?.statusCode == 200,
-              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let tag = object["tag_name"] as? String else { return nil }
-        return tag
+        return request
+    }
+
+    private static func parse(_ data: Data) -> String? {
+        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return nil
+        }
+        return object["tag_name"] as? String
     }
 }
