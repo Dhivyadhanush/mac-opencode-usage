@@ -62,7 +62,7 @@ struct PanelView: View {
     private var content: some View {
         if let data = store.data {
             HStack(spacing: 10) {
-                summaryCard("5-hour", Usage.top(data, .five))
+                summaryCard("Last 5h", Usage.top(data, .five))
                 summaryCard("Weekly", Usage.top(data, .week))
                 summaryCard("Monthly", Usage.top(data, .month))
             }
@@ -132,7 +132,7 @@ struct PanelView: View {
             }
 
             HStack(alignment: .top, spacing: 8) {
-                miniStat("5-hour", model, .five)
+                miniStat("Last 5h", model, .five)
                 miniStat("Week", model, .week)
                 miniStat("Month", model, .month)
             }
@@ -186,7 +186,7 @@ struct PanelView: View {
                 "\(Usage.compact(data.input)) in · \(Usage.compact(data.output)) out · "
                     + "\(Usage.compact(data.cacheRead)) cache"
             )
-            detailRow("5h window", clock.string(from: data.fiveSinceAt) + " local")
+            detailRow("5h window", clock.string(from: data.fiveSinceAt) + "–" + clock.string(from: data.updatedAt) + " local")
             detailRow("Source", "console usage API")
             detailRow("Updated", clock.string(from: data.updatedAt))
         }

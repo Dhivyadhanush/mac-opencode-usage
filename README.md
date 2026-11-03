@@ -6,9 +6,11 @@ A macOS menu bar app that shows what your OpenCode **Go** plan is using, right
 now. Port of the Noctalia plugin from my dotfiles.
 
 The menu bar shows the gauge and three figures — `H 2% W 13% M 10%` — where
-**H** is the rolling 5-hour window, **W** the current week (Monday start) and
-**M** the calendar month. Any combination can be turned off in settings. Click
-for per-model spend, requests, tokens and the reset times.
+**H** is the last 5 hours, **W** the current week (Monday start) and
+**M** the calendar month. H is a rolling sum, not the console's resetting
+5-hour meter, so it can disagree with the console right after a reset. Any
+combination can be turned off in settings. Click for per-model spend, requests
+and tokens.
 
 ## Requirements
 
@@ -103,7 +105,10 @@ Adding `go_plus` / `go_teams` limits to `Sources/Usage.swift` would fix that.
    50%, month 100%).
 
 Window boundaries use the local calendar (Monday start), converted to UTC ISO
-for the `since` parameter.
+for the `since` parameter — `since` must be a `Z` timestamp: the API rejects
+`+05:30`, `+00:00` and zone-less values. Durations are zone-independent, so the
+5h cutoff is an exact instant; only the week/month/today boundaries depend on
+this Mac's timezone.
 
 ## Notes
 

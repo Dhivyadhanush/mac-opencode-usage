@@ -377,6 +377,9 @@ enum Usage {
             }
         }
         lines.append("today \(money(data.today))")
+        let local = DateFormatter()
+        local.dateFormat = "HH:mm zzz"
+        lines.append("5h window: \(iso.string(from: data.fiveSinceAt)) → now = \(local.string(from: data.fiveSinceAt)) → \(local.string(from: data.updatedAt))")
         for model in data.models {
             lines.append(
                 "  \(model.id) limit \(model.limit.map(money) ?? "unlimited") "

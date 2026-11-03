@@ -3,7 +3,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 APP="build/OpenCodeUsage.app"
-VERSION="${VERSION:-1.0.0}"
+VERSION="${VERSION:-1.0.4}"
 BUILD="${BUILD:-1}"
 # ARCHS="arm64 x86_64" produces a universal binary; default is this machine.
 ARCHS="${ARCHS:-$(uname -m)}"
