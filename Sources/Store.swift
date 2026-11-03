@@ -34,7 +34,8 @@ final class Store: ObservableObject {
     func schedule() {
         timer?.invalidate()
         let timer = Timer.scheduledTimer(withTimeInterval: Double(refreshMinutes) * 60, repeats: true) { [weak self] _ in
-            Task { @MainActor in await self?.refresh() }
+            guard let self else { return }
+            Task { @MainActor in await self.refresh() }
         }
         timer.tolerance = 10
         RunLoop.main.add(timer, forMode: .common)
