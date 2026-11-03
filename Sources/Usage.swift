@@ -153,6 +153,13 @@ enum Usage {
         return best
     }
 
+    // Current zone as "+05:30", so a time can be read without guessing the zone.
+    static var offset: String {
+        let seconds = TimeZone.current.secondsFromGMT()
+        let minutes = abs(seconds) / 60
+        return String(format: "%@%02d:%02d", seconds < 0 ? "-" : "+", minutes / 60, minutes % 60)
+    }
+
     static func money(_ value: Double) -> String {
         if value >= 100 { return String(format: "$%.0f", value) }
         if value >= 10 { return String(format: "$%.1f", value) }
@@ -377,9 +384,7 @@ enum Usage {
             }
         }
         lines.append("today \(money(data.today))")
-        let local = DateFormatter()
-        local.dateFormat = "HH:mm zzz"
-        lines.append("5h window: \(iso.string(from: data.fiveSinceAt)) → now = \(local.string(from: data.fiveSinceAt)) → \(local.string(from: data.updatedAt))")
+        lines.append("5h starts \(iso.string(from: data.fiveSinceAt)) ends \(iso.string(from: data.updatedAt))")
         for model in data.models {
             lines.append(
                 "  \(model.id) limit \(model.limit.map(money) ?? "unlimited") "

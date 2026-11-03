@@ -186,9 +186,10 @@ struct PanelView: View {
                 "\(Usage.compact(data.input)) in · \(Usage.compact(data.output)) out · "
                     + "\(Usage.compact(data.cacheRead)) cache"
             )
-            detailRow("5h window", clock.string(from: data.fiveSinceAt) + "–" + clock.string(from: data.updatedAt) + " local")
+            detailRow("5h starts", clock.string(from: data.fiveSinceAt) + " " + Usage.offset)
+            detailRow("5h ends", clock.string(from: data.updatedAt) + " " + Usage.offset)
             detailRow("Source", "console usage API")
-            detailRow("Updated", clock.string(from: data.updatedAt))
+            detailRow("Updated", clock.string(from: data.updatedAt) + " " + Usage.offset)
         }
     }
 

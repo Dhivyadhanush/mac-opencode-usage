@@ -82,6 +82,8 @@ enum SelfTest {
         check(Usage.money(1234) == "$1234", "money no dp")
         check(Usage.compact(116_727_552) == "116.7M", "compact millions")
         check(Usage.compact(999) == "999", "compact small")
+        check(Usage.offset.count == 6 && Usage.offset.hasPrefix("+") == (TimeZone.current.secondsFromGMT() >= 0), "offset format")
+        check(Usage.offset.dropFirst().contains(":"), "offset has minutes")
 
         let weekStart = Usage.weekStart(now)
         check(Usage.calendar.component(.weekday, from: weekStart) == 2, "week starts Monday")
