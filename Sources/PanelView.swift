@@ -71,6 +71,13 @@ struct PanelView: View {
                 banner("Refresh failed; showing previous data.", detail: error)
             }
 
+            // A different plan, or a model we have no limit for, would otherwise
+            // look like a broken app: every percentage is a dash.
+            if data.models.contains(where: { $0.month > 0 }) && Usage.top(data, .month) == nil {
+                banner("No spend limits for these models.",
+                       detail: "The built-in table only covers the `go` plan, so percentages are unavailable. Spend and requests still update.")
+            }
+
             Divider()
             Text("Models this month").font(.system(size: 12, weight: .semibold))
 
@@ -119,7 +126,7 @@ struct PanelView: View {
             HStack(alignment: .center, spacing: 8) {
                 Text(model.id).font(.system(size: 13, weight: .semibold))
                 Spacer()
-                Text(model.limit.map { "limit " + Usage.money($0) } ?? "unlimited")
+                Text(model.limit.map { "limit " + Usage.money($0) } ?? "no limit data")
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
             }
@@ -161,7 +168,7 @@ struct PanelView: View {
             Text(pct.map(Usage.percent) ?? "—")
                 .font(.system(size: 14, weight: .bold))
                 .foregroundStyle(usageColor(pct, warning: store.warning, critical: store.critical))
-            Text(cap.map { "\(Usage.money(value)) / \(Usage.money($0))" } ?? "\(Usage.money(value)) · unlimited")
+            Text(cap.map { "\(Usage.money(value)) / \(Usage.money($0))" } ?? "\(Usage.money(value)) · no limit data")
                 .font(.system(size: 9))
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
@@ -266,6 +273,13 @@ struct SettingsView: View {
             if let loginError {
                 Text(loginError).font(.system(size: 10)).foregroundStyle(.red)
             }
+
+            // Menu bar apps have no other way out without Activity Monitor.
+            HStack {
+                Spacer()
+                Button("Quit") { NSApplication.shared.terminate(nil) }
+            }
+            .padding(.top, 2)
         }
         .font(.system(size: 11))
         .padding(12)

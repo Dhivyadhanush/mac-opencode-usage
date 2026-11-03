@@ -10,6 +10,14 @@ The menu bar shows the gauge and three figures — `H 2% W 13% M 10%` — where
 **M** the calendar month. Any combination can be turned off in settings. Click
 for per-model spend, requests, tokens and the reset times.
 
+## Requirements
+
+- macOS 14 or newer.
+- opencode installed and signed in to a Go plan: the app reads that key from
+  `~/.local/share/opencode/opencode.db` (or the older `auth.json`). It has no
+  key of its own and no login screen — if the key is missing or expired the
+  panel says so and points at `opencode auth login`.
+
 ## Install
 
 ```shell
@@ -76,8 +84,10 @@ member account had $0.85 this month while the account total was $10 — same Go
 quota, so filtering to the member id would have under-reported it by an order of
 magnitude. The app therefore always shows every principal the key can see.
 
-Only the `go` plan table is included. `go_plus` / `go_teams` limits would need
-adding to `Sources/Usage.swift`.
+Only the `go` plan table is included. On another plan (or a model added after
+this build) there is no limit to compare against, so the panel shows
+"no limit data" and a banner, while spend and request counts keep updating.
+Adding `go_plus` / `go_teams` limits to `Sources/Usage.swift` would fix that.
 
 ## How it works
 

@@ -195,6 +195,9 @@ enum Usage {
         guard (200..<300).contains(status) else {
             let body = String(decoding: data.prefix(400), as: UTF8.self)
                 .trimmingCharacters(in: .whitespacesAndNewlines)
+            if status == 401 || status == 403 {
+                throw Failure("The OpenCode Go key was rejected (HTTP \(status)). It is probably expired — run `opencode auth login` to refresh it. \(body.prefix(120))")
+            }
             throw Failure("HTTP \(status) from the usage API: \(body.prefix(180))")
         }
         guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {

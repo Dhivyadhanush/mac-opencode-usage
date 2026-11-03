@@ -88,6 +88,17 @@ enum SelfTest {
         check(Usage.calendar.component(.hour, from: weekStart) == 0, "week starts at midnight")
         check(Usage.iso.string(from: weekStart).hasSuffix("Z"), "since is UTC ISO")
 
+        // A plan or model we have no limit for must render as "no limit data"
+        // instead of dividing by zero or claiming "unlimited".
+        let unknown = Usage.aggregate(
+            windows: [.five: [], .week: [], .month: [["provider": "opencode-go", "model": "brand-new", "totalCostMicroCents": "10000000"]], .today: []],
+            since: since,
+            plan: "go_plus"
+        )
+        check(unknown.models.first?.limit == nil, "unknown model has no limit")
+        check(Usage.cap(unknown.models[0], .month) == nil, "no cap without a limit")
+        check(Usage.top(unknown, .month) == nil, "no percentage without a limit")
+
         print(failures == 0 ? "selftest ok" : "selftest failed: \(failures)")
         exit(failures == 0 ? 0 : 1)
     }
