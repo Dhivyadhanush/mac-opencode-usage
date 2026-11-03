@@ -95,6 +95,7 @@ Self-checks:
 ./build/OpenCodeUsage.app/Contents/MacOS/OpenCodeUsage --selftest   # offline asserts
 ./build/OpenCodeUsage.app/Contents/MacOS/OpenCodeUsage --dump       # live fetch, prints numbers
 ./build/OpenCodeUsage.app/Contents/MacOS/OpenCodeUsage --limits     # ask opencode's own usage route
+./build/OpenCodeUsage.app/Contents/MacOS/OpenCodeUsage --update     # compare against the latest release
 ./build/OpenCodeUsage.app/Contents/MacOS/OpenCodeUsage --loginitem on|off  # same as the settings toggle
 ```
 
@@ -109,6 +110,9 @@ Open the panel, click the gear.
 | Menu bar | H + W + M | Which figures to show. |
 | Launch at login | off | Writes and registers `~/Library/LaunchAgents/dev.myleshen.opencode-usage.plist`. |
 | Quit | — | Button at the bottom of settings; a MenuBarExtra has no Quit item of its own. |
+
+The footer shows the running version, and `· vX.Y.Z available` once GitHub
+reports a newer release (checked at most once a day).
 
 ### One scope only
 
@@ -151,6 +155,10 @@ Two sources, in this order:
 2. **A rolling five-hour sum** of the console usage API, if that meter is absent.
    Then the panel labels the card `Last 5h` and shows the window start and end
    instead of a reset time, because a rolling sum has no future boundary.
+
+When fallback 2 is in use the panel says so outright — a **No console session** banner
+sits above the cards, with the command to fix it. The two sources can disagree
+materially (9% vs the console's 14% on the same account), so it is never silent.
 
 `./OpenCodeUsage --limits` prints the raw meter response, which is how to tell
 which source is in use.
@@ -203,6 +211,8 @@ this Mac's timezone.
 | `no limit data` on every card | A model newer than the built-in table, or a Go Plus/Teams account. Spend still works. |
 | Gatekeeper says the app is damaged | Quarantine flag: `xattr -dr com.apple.quarantine /Applications/OpenCodeUsage.app`. |
 | Menu bar shows two gauges | Stale copy holding no lock file — remove the other `OpenCodeUsage.app`, keep one. |
+| Banner says **No console session** | The device sign-in lapsed or was never done: `opencode auth login "OpenCode Console" --method device`, then refresh. |
+| Settings footer names a newer version | `brew reinstall --cask opencode-usage` — `brew upgrade` is a no-op for this cask. |
 
 ## Releasing
 

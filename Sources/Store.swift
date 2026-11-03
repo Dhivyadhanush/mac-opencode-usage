@@ -6,6 +6,8 @@ final class Store: ObservableObject {
     @Published var data: UsageData?
     @Published var error: String?
     @Published var busy = false
+    // Release tag newer than this build, if GitHub reports one.
+    @Published var latestVersion: String?
 
     private var timer: Timer?
 
@@ -26,6 +28,22 @@ final class Store: ObservableObject {
     init() {
         schedule()
         Task { await refresh() }
+        checkForUpdate()
+    }
+
+    // Cheap honesty about updates: `brew upgrade` does nothing for a
+    // `version :latest` cask, so the footer has to say when one exists.
+    func checkForUpdate() {
+        let defaults = UserDefaults.standard
+        if let last = defaults.object(forKey: "lastUpdateCheck") as? Date,
+           Date().timeIntervalSince(last) < 86_400 { return }
+        defaults.set(Date(), forKey: "lastUpdateCheck")
+
+        Task {
+            guard let tag = await UpdateCheck.fetchLatest() else { return }
+            let current = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
+            latestVersion = UpdateCheck.newer(latest: tag, current: current) ? tag : nil
+        }
     }
 
     func schedule() {

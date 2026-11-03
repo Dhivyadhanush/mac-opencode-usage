@@ -130,6 +130,13 @@ enum SelfTest {
         check(Limits.value(model: "deepseek-v4.1-flash") == 100, "go limit")
         check(Limits.value(model: "nope") == nil, "unknown model has no limit")
 
+        // Version comparison for the update nudge.
+        check(UpdateCheck.newer(latest: "v1.0.13", current: "1.0.12"), "newer patch")
+        check(UpdateCheck.newer(latest: "v1.1.0", current: "1.0.13"), "newer minor")
+        check(!UpdateCheck.newer(latest: "v1.0.12", current: "1.0.12"), "same version is not newer")
+        check(!UpdateCheck.newer(latest: "v1.0.9", current: "1.0.10"), "older patch is not newer")
+        check(UpdateCheck.newer(latest: "1.0.10", current: "1.0.9"), "numeric, not string, compare")
+
         print(failures == 0 ? "selftest ok" : "selftest failed: \(failures)")
         exit(failures == 0 ? 0 : 1)
     }

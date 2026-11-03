@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 private func usageColor(_ pct: Double?, warning: Double, critical: Double) -> Color {
@@ -7,6 +8,13 @@ private func usageColor(_ pct: Double?, warning: Double, critical: Double) -> Co
     if pct >= max(critical, warning) { return .red }
     if pct >= warning { return .yellow }
     return .primary
+}
+
+// Used by the settings footer; needs the store for a pending release tag.
+@MainActor private func versionLine(_ store: Store) -> String {
+    let current = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+    guard let latest = store.latestVersion else { return "v\(current)" }
+    return "v\(current) · \(latest) available, brew reinstall --cask opencode-usage"
 }
 
 private let clock: DateFormatter = {
@@ -29,7 +37,9 @@ struct PanelView: View {
             }
             .padding(16)
         }
-        .frame(width: 440, height: 660)
+        // 660 is the design height; a short display gets a shorter panel
+        // instead of one that runs off the bottom of the screen.
+        .frame(width: 440, height: min(660, (NSScreen.main?.visibleFrame.height ?? 700) - 40))
         .onAppear { store.refreshIfStale() }
     }
 
@@ -45,7 +55,11 @@ struct PanelView: View {
             Button {
                 Task { await store.refresh() }
             } label: {
-                Image(systemName: "arrow.clockwise")
+                if store.busy {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Image(systemName: "arrow.clockwise")
+                }
             }
             .buttonStyle(.borderless)
             .disabled(store.busy)
@@ -72,6 +86,13 @@ struct PanelView: View {
 
             if let error = store.error {
                 banner("Refresh failed; showing previous data.", detail: error)
+            }
+
+            // Without a console session the numbers are our own sums, which can
+            // differ from the console. Say so instead of looking equivalent.
+            if data.meters == nil {
+                banner("No console session.",
+                       detail: "Showing rolling sums of the usage API. For the console's own percentages, run: opencode auth login \"OpenCode Console\" --method device")
             }
 
             // A model newer than the table, or a Go Plus/Teams account, would
@@ -192,7 +213,8 @@ struct PanelView: View {
     private func details(_ data: UsageData) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             Text("Details").font(.system(size: 12, weight: .semibold))
-            detailRow("Today", Usage.money(data.today))
+            // Local midnight, not the console's window, so name the boundary.
+            detailRow("Today (00:00 \(Usage.offset))", Usage.money(data.today))
             detailRow("Month requests", String(data.monthRequests))
             detailRow(
                 "Month tokens",
@@ -338,7 +360,7 @@ struct SettingsView: View {
 
             // Menu bar apps have no other way out without Activity Monitor.
             HStack {
-                Text("v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?")")
+                Text(versionLine(store))
                     .font(.system(size: 9))
                     .foregroundStyle(.secondary)
                 Spacer()

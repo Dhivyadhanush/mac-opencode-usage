@@ -10,6 +10,9 @@ struct OpenCodeUsageApp: App {
         if CommandLine.arguments.contains("--dump") { Self.dump() }
         if CommandLine.arguments.contains("--limits") { Self.limits() }
 
+        // Headless update check, for support: ./OpenCodeUsage --update
+        if CommandLine.arguments.contains("--update") { Self.update() }
+
         // Headless switch for the login item: ./OpenCodeUsage --loginitem on|off
         if let i = CommandLine.arguments.firstIndex(of: "--loginitem"),
            CommandLine.arguments.count > i + 1 {
@@ -53,6 +56,18 @@ struct OpenCodeUsageApp: App {
         let data = output.fileHandleForReading.readDataToEndOfFile()
         process.waitUntilExit()
         print(String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines))
+        exit(0)
+    }
+
+    private static func update() -> Never {
+        let current = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+        guard let tag = UpdateCheck.fetchLatestSync() else {
+            print("v\(current) · could not reach GitHub")
+            exit(1)
+        }
+        print(UpdateCheck.newer(latest: tag, current: current)
+              ? "v\(current) · \(tag) available (brew reinstall --cask opencode-usage)"
+              : "v\(current) · up to date")
         exit(0)
     }
 

@@ -419,7 +419,10 @@ enum Usage {
     // `opencode api` talks to the local server, which knows the console
     // workspace's real meter (percent + reset time). Empty data means opencode
     // is not signed into a console workspace, so callers fall back to spending.
-    static func metersFromCLI() -> Meters? { meters(from: cliJSON()) }
+    static func metersFromCLI() -> Meters? {
+        if ProcessInfo.processInfo.environment["NO_METER"] != nil { return nil } // TEMP
+        return meters(from: cliJSON())
+    }
 
     static func meters(from data: Data) -> Meters? {
         guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
