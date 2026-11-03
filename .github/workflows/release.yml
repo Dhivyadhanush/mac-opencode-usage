@@ -34,7 +34,7 @@ jobs:
             --generate-notes \
             --notes-file - build/OpenCodeUsage.zip <<NOTES
           Unsigned build: right-click > Open the first time, or install with
-          \`brew install --cask ./Casks/opencode-usage.rb\`.
+          \`brew install --cask Myleshen/tap/opencode-usage\`.
 
           sha256: $(cut -d' ' -f1 sha256.txt)
           NOTES

@@ -13,8 +13,12 @@ for per-model spend, requests, tokens and the reset times.
 ## Install
 
 ```shell
-brew install --cask ./Casks/opencode-usage.rb
+brew tap Myleshen/tap
+brew install --cask opencode-usage
 ```
+
+The cask lives in [Myleshen/homebrew-tap](https://github.com/Myleshen/homebrew-tap)
+(alongside my other casks). `brew upgrade` picks up new releases from there.
 
 Or download `OpenCodeUsage.zip` from the latest release and drag the app out.
 The build is ad-hoc signed, so the first launch needs right-click → **Open**.
