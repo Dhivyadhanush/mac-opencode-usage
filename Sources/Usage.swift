@@ -509,7 +509,8 @@ enum Usage {
             return "  \(name) \(money(model.total)) of \(limit)"
         }
         if !listed.isEmpty {
-            lines.append("model list rows with spend:")
+            lines.append("cards \(data.models.filter { $0.month > 0 }.count) models (month > 0)")
+        lines.append("model list rows with spend:")
             lines.append(contentsOf: listed)
         }
         return lines.joined(separator: "\n")

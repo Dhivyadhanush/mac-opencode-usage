@@ -108,12 +108,16 @@ struct PanelView: View {
             Divider()
             Text("Models").font(.system(size: 12, weight: .semibold))
 
-            if data.models.isEmpty {
+            // Cards are for models used in the windows being shown; the
+            // lifetime query would otherwise add a card for every model this
+            // account has ever touched.
+            let cards = data.models.filter { $0.month > 0 }
+            if cards.isEmpty {
                 Text("No OpenCode Go usage in this period.")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
             } else {
-                ForEach(data.models) { model in
+                ForEach(cards) { model in
                     modelCard(model)
                 }
             }
@@ -253,20 +257,16 @@ struct PanelView: View {
     // Only models that actually have spend: the plan table has 28 entries and
     // the untouched ones were pure noise in the panel.
     private func allModels(_ data: UsageData) -> some View {
-        let rows = Limits.models().compactMap { name -> (String, ModelUsage, Double?)? in
-            guard let model = Usage.spend(data, name: name), model.total > 0 else { return nil }
-            return (name, model, Limits.value(model: name))
-        }
-
-        if !rows.isEmpty {
+        let names = Limits.models()
+        return VStack(alignment: .leading, spacing: 3) {
             Button {
                 showAllModels.toggle()
             } label: {
                 HStack(spacing: 4) {
                     Image(systemName: showAllModels ? "chevron.down" : "chevron.right")
-                        .font(.system(size: 9, weight: .bold))
-                    Text("All \(rows.count) models with usage")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.system(size: 8, weight: .semibold))
+                    Text("All \(names.count) models")
+                        .font(.system(size: 10))
                     Spacer()
                 }
                 .contentShape(Rectangle())
@@ -275,14 +275,21 @@ struct PanelView: View {
 
             if showAllModels {
                 VStack(spacing: 3) {
-                    // The list shows docs display names ("DeepSeek V4.1 Flash")
-                    // while usage rows carry API ids ("deepseek-v4.1-flash").
-                    ForEach(rows, id: \.0) { name, model, limit in
+                    ForEach(names, id: \.self) { name in
                         HStack(spacing: 6) {
                             Text(name).font(.system(size: 10))
                             Spacer()
-                            Text(Usage.money(model.total)).font(.system(size: 10, weight: .medium))
-                            Text("/ \(Usage.money(limit ?? 0))").font(.system(size: 10)).foregroundStyle(.secondary)
+                            if let model = Usage.spend(data, name: name), model.total > 0 {
+                                Text(Usage.money(model.total))
+                                    .font(.system(size: 10, weight: .medium))
+                                Text("/ \(Usage.money(Limits.value(model: name) ?? 0))")
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                Text("no usage")
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     }
                 }
