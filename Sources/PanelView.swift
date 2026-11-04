@@ -111,7 +111,9 @@ struct PanelView: View {
             // Cards are for models used in the windows being shown; the
             // lifetime query would otherwise add a card for every model this
             // account has ever touched.
-            let cards = data.models.filter { $0.month > 0 }
+            // A card per model that actually spent something this month: a
+            // fraction of a cent is noise, not usage.
+            let cards = data.models.filter { $0.month >= Usage.meaningful }
             if cards.isEmpty {
                 Text("No OpenCode Go usage in this period.")
                     .font(.system(size: 11))

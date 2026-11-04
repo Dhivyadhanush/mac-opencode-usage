@@ -104,6 +104,9 @@ enum Usage {
 
     static let api = "https://opencode.ai/console/api"
 
+    // Below a cent a model is noise on a card; the expanded list still shows it.
+    static let meaningful = 0.01
+
     // MARK: - Windows
 
     static var calendar: Calendar {
@@ -509,7 +512,7 @@ enum Usage {
             return "  \(name) \(money(model.total)) of \(limit)"
         }
         if !listed.isEmpty {
-            lines.append("cards \(data.models.filter { $0.month > 0 }.count) models (month > 0)")
+            lines.append("cards \(data.models.filter { $0.month >= meaningful }.count) models (month >= \(money(meaningful)))")
         lines.append("model list rows with spend:")
             lines.append(contentsOf: listed)
         }
