@@ -507,9 +507,9 @@ enum Usage {
         // dump the same join: a docs name that fails to find its API id shows
         // up here as a missing row instead of "no usage" in the UI.
         let listed = Limits.models().compactMap { name -> String? in
-            guard let model = spend(data, name: name), model.total > 0 else { return nil }
+            guard let model = spend(data, name: name), model.month > 0 else { return nil }
             let limit = Limits.value(model: name).map(money) ?? "-"
-            return "  \(name) \(money(model.total)) of \(limit)"
+            return "  \(name) \(money(model.month)) of \(limit)"
         }
         if !listed.isEmpty {
             lines.append("cards \(data.models.filter { $0.month >= meaningful }.count) models (month >= \(money(meaningful)))")

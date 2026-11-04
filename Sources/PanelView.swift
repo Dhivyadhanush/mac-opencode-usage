@@ -256,8 +256,6 @@ struct PanelView: View {
     // rather than DisclosureGroup: that one never took clicks in a
     // MenuBarExtra window.
     @ViewBuilder
-    // Only models that actually have spend: the plan table has 28 entries and
-    // the untouched ones were pure noise in the panel.
     private func allModels(_ data: UsageData) -> some View {
         let names = Limits.models()
         return VStack(alignment: .leading, spacing: 3) {
@@ -267,7 +265,7 @@ struct PanelView: View {
                 HStack(spacing: 4) {
                     Image(systemName: showAllModels ? "chevron.down" : "chevron.right")
                         .font(.system(size: 8, weight: .semibold))
-                    Text("All \(names.count) models")
+                    Text("All \(names.count) models · this month")
                         .font(.system(size: 10))
                     Spacer()
                 }
@@ -281,8 +279,10 @@ struct PanelView: View {
                         HStack(spacing: 6) {
                             Text(name).font(.system(size: 10))
                             Spacer()
-                            if let model = Usage.spend(data, name: name), model.total > 0 {
-                                Text(Usage.money(model.total))
+                            // Same window as the cards: the all-time total made a
+                            // model look expensive next to its own month card.
+                            if let model = Usage.spend(data, name: name), model.month > 0 {
+                                Text(Usage.money(model.month))
                                     .font(.system(size: 10, weight: .medium))
                                 Text("/ \(Usage.money(Limits.value(model: name) ?? 0))")
                                     .font(.system(size: 10))
