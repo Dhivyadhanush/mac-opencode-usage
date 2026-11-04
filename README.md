@@ -134,9 +134,10 @@ limits and Go Teams is Go + $5 per model, so on those plans the printed limits
 (and any percentage computed without a console session) will be low. There is
 no plan field in any API to detect it from, so the app does not guess.
 
-Below the model cards, **All 28 models** expands into the full list,
-alphabetical, with all-time spend and the model's limit; models you have never
-touched read `no usage`. It is a plain list, not a picker.
+Below the model cards, **All N models with usage** expands into an
+alphabetical list of only the models that have spend, with all-time spend and
+that model's limit. Untouched models are left out, but they still count towards
+the plan table fetched above.
 
 A model missing from the docs table has no limit to compare against, so it
 shows "no limit data" and a banner, while spend and request counts keep

@@ -250,37 +250,39 @@ struct PanelView: View {
     // rather than DisclosureGroup: that one never took clicks in a
     // MenuBarExtra window.
     @ViewBuilder
+    // Only models that actually have spend: the plan table has 28 entries and
+    // the untouched ones were pure noise in the panel.
     private func allModels(_ data: UsageData) -> some View {
-        let names = Limits.models()
-        Button {
-            showAllModels.toggle()
-        } label: {
-            HStack(spacing: 4) {
-                Image(systemName: showAllModels ? "chevron.down" : "chevron.right")
-                    .font(.system(size: 9, weight: .bold))
-                Text("All \(names.count) models")
-                    .font(.system(size: 11, weight: .medium))
-                Spacer()
-            }
-            .contentShape(Rectangle())
+        let rows = Limits.models().compactMap { name -> (String, ModelUsage, Double?)? in
+            guard let model = Usage.spend(data, name: name), model.total > 0 else { return nil }
+            return (name, model, Limits.value(model: name))
         }
-        .buttonStyle(.borderless)
 
-        if showAllModels {
-            VStack(spacing: 3) {
-                ForEach(names, id: \.self) { name in
+        if !rows.isEmpty {
+            Button {
+                showAllModels.toggle()
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: showAllModels ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 9, weight: .bold))
+                    Text("All \(rows.count) models with usage")
+                        .font(.system(size: 11, weight: .medium))
+                    Spacer()
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.borderless)
+
+            if showAllModels {
+                VStack(spacing: 3) {
                     // The list shows docs display names ("DeepSeek V4.1 Flash")
                     // while usage rows carry API ids ("deepseek-v4.1-flash").
-                    let model = Usage.spend(data, name: name)
-                    let limit = Limits.value(model: name)
-                    HStack(spacing: 6) {
-                        Text(name).font(.system(size: 10))
-                        Spacer()
-                        if let model, model.total > 0 {
+                    ForEach(rows, id: \.0) { name, model, limit in
+                        HStack(spacing: 6) {
+                            Text(name).font(.system(size: 10))
+                            Spacer()
                             Text(Usage.money(model.total)).font(.system(size: 10, weight: .medium))
                             Text("/ \(Usage.money(limit ?? 0))").font(.system(size: 10)).foregroundStyle(.secondary)
-                        } else {
-                            Text("no usage").font(.system(size: 10)).foregroundStyle(.tertiary)
                         }
                     }
                 }
