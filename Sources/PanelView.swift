@@ -87,6 +87,8 @@ struct PanelView: View {
                 summaryCard("Monthly", Usage.top(data, .month), note: resetNote(data.meters?.month))
             }
 
+            creditsCard(data.credits)
+
             if let error = store.error {
                 banner("Refresh failed; showing previous data.", detail: error)
             }
@@ -155,6 +157,42 @@ struct PanelView: View {
     private func resetNote(_ meter: Meters.Meter?) -> String? {
         guard let at = meter?.resetsAt else { return nil }
         return "resets " + clock.string(from: at) + " " + Usage.offset
+    }
+
+    // The Go plan's meters are percentages; managed inference is paid from a
+    // separate prepaid balance, so it gets its own track with a dollar figure
+    // instead of a fourth percentage that would not share their scale.
+    @ViewBuilder
+    private func creditsCard(_ credits: Credits?) -> some View {
+        if let credits {
+            HStack(alignment: .center, spacing: 10) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Available credits")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.secondary)
+                    Text(Usage.money(credits.available))
+                        .font(.system(size: 20, weight: .bold))
+                    Text(credits.mode.map { "\($0) · managed inference usage" }
+                         ?? "Credits available for managed inference usage")
+                        .font(.system(size: 9))
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                // Under invoicing the ledger balance and what can actually be
+                // spent differ; only show the second figure when they do.
+                if credits.balance != credits.available {
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("Balance")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.secondary)
+                        Text(Usage.money(credits.balance))
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                }
+            }
+            .padding(12)
+            .background(RoundedRectangle(cornerRadius: 10).fill(Color.primary.opacity(0.06)))
+        }
     }
 
     private func summaryNote(_ top: Usage.Top?) -> String? {
@@ -230,6 +268,10 @@ struct PanelView: View {
             // Lifetime, not "this month": the API clamps `since` to about three
             // days, so any month figure would be a three-day total in disguise.
             detailRow("All time", Usage.money(data.lifetimeTotal) + " · " + Usage.compact(data.lifetimeRequests) + " req")
+            if let credits = data.credits {
+                detailRow("Available credits", Usage.money(credits.available))
+                if let mode = credits.mode { detailRow("Credits mode", mode) }
+            }
             if let meter = data.meters?.five {
                 detailRow("5h resets", reset(meter))
                 // In metered mode every other time above is a future reset, so
@@ -327,6 +369,7 @@ struct SettingsView: View {
     @AppStorage("barFive") private var barFive = true
     @AppStorage("barWeek") private var barWeek = true
     @AppStorage("barMonth") private var barMonth = true
+    @AppStorage("barCredits") private var barCredits = false
     @State private var loginError: String?
     @State private var launchAtLogin = LoginItem.enabled
 
@@ -355,6 +398,7 @@ struct SettingsView: View {
                 Toggle("H", isOn: $barFive).toggleStyle(.checkbox)
                 Toggle("W", isOn: $barWeek).toggleStyle(.checkbox)
                 Toggle("M", isOn: $barMonth).toggleStyle(.checkbox)
+                Toggle("C", isOn: $barCredits).toggleStyle(.checkbox)
             }
 
             Toggle("Launch at login", isOn: $launchAtLogin)

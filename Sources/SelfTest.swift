@@ -73,6 +73,24 @@ enum SelfTest {
         withLifetime.lifetimeRequests = 1234
         check(Usage.describe(withLifetime).contains("all time $12.5 · 1234 req"), "lifetime line in dump")
 
+        // Billing status: micro-cents, and `available` can differ from the
+        // ledger balance on an invoiced workspace.
+        let billing: [String: Any] = [
+            "availableMicroCents": "426850414",
+            "balanceMicroCents": "500000000",
+            "mode": "pay-as-you-go",
+            "canPurchaseCredits": true,
+        ]
+        let credits = Usage.credits(from: billing)
+        check(abs((credits?.available ?? 0) - 4.26850414) < 0.00000001, "available credits from microcents")
+        check(abs((credits?.balance ?? 0) - 5) < 0.00000001, "credit balance from microcents")
+        check(credits?.mode == "pay-as-you-go", "credits mode")
+        check(credits?.canPurchase == true, "credits purchasable")
+        check(Usage.credits(from: ["balanceMicroCents": "1"]) == nil, "available credits required")
+        var withCredits = data
+        withCredits.credits = credits
+        check(Usage.describe(withCredits).contains("available credits $4.27"), "credits line in dump")
+
         // Sorted by month-of-limit: 50/100 = 50%, then 15/15 = 100% would win,
         // so check the 100% model comes first.
         check(data.models.first?.id == "glm-5.3", "sorts by monthly utilization")

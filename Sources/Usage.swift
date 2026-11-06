@@ -59,6 +59,19 @@ struct UsageData {
     // Percentages straight from the console's own meters, when opencode has a
     // linked console workspace. nil means the console API numbers are used.
     var meters: Meters?
+    // Prepaid balance for managed inference (Zen). nil when the workspace has
+    // no billing account, or when the billing route is unreachable.
+    var credits: Credits?
+}
+
+// /console/api/billing/status. The amounts are micro-cents, like the usage
+// API's costs, so 1e8 of them is one dollar.
+struct Credits {
+    let available: Double
+    let balance: Double
+    // "pay-as-you-go", "prepaid", or "invoice".
+    let mode: String?
+    let canPurchase: Bool
 }
 
 // UsageLimits.Go from opencode's server: the numbers the console itself shows.
@@ -310,6 +323,30 @@ enum Usage {
         }
     }
 
+    // MARK: - Credits
+
+    // Supplementary, so every failure is nil instead of an error: a workspace
+    // without billing must not turn a working Go refresh into a failed one.
+    static func credits(key: String) async -> Credits? {
+        guard let url = URL(string: api + "/billing/status") else { return nil }
+        guard let body = try? await request(url, key: key) else { return nil }
+        return credits(from: body)
+    }
+
+    static func credits(from body: [String: Any]) -> Credits? {
+        // `availableMicroCents` is what the console calls "Available credits";
+        // it already accounts for a credit limit, so prefer it to the ledger
+        // balance when both are present.
+        guard let available = number(body["availableMicroCents"]) else { return nil }
+        let balance = number(body["balanceMicroCents"]) ?? available
+        return Credits(
+            available: available / 100_000_000,
+            balance: balance / 100_000_000,
+            mode: body["mode"] as? String,
+            canPurchase: body["canPurchaseCredits"] as? Bool ?? false
+        )
+    }
+
     // MARK: - Aggregation
 
     static func aggregate(
@@ -387,6 +424,7 @@ enum Usage {
         ]
 
         async let lifetimeRows = models(since: nil, key: key)
+        async let creditStatus = credits(key: key)
 
         var windows: [Period: [[String: Any]]] = [:]
         try await withThrowingTaskGroup(of: (Period, [[String: Any]]).self) { group in
@@ -420,6 +458,7 @@ enum Usage {
         }
         data.models = byId.values.sorted { $0.total > $1.total }
         data.meters = metersFromCLI()
+        data.credits = await creditStatus
         return data
     }
 
@@ -491,6 +530,7 @@ enum Usage {
         }
         lines.append("today \(money(data.today))")
         lines.append("all time \(money(data.lifetimeTotal)) · \(data.lifetimeRequests) req")
+        lines.append("available credits \(data.credits.map { money($0.available) } ?? "—")")
         lines.append("limits \(Limits.count) models (\(Limits.isDynamic ? "docs" : "bundled"))")
         if let meter = data.meters?.five {
             lines.append("5h meter: \(percent(meter.value(.five))) from the console, resets \(meter.resetsAt?.description ?? "unknown")")

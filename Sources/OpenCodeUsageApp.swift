@@ -98,6 +98,7 @@ struct MenuBarLabel: View {
     @AppStorage("barFive") private var barFive = true
     @AppStorage("barWeek") private var barWeek = true
     @AppStorage("barMonth") private var barMonth = true
+    @AppStorage("barCredits") private var barCredits = false
 
     var body: some View {
         let segments = self.segments
@@ -110,20 +111,31 @@ struct MenuBarLabel: View {
     }
 
     // Always prefixed so a single visible number cannot be misread: H = 5-hour,
-    // W = week, M = month.
+    // W = week, M = month, C = available credits.
     private var segments: (text: String, risk: Bool) {
         guard let data = store.data else { return ("—", false) }
 
-        var picked: [(String, Double?)] = []
-        if barFive { picked.append(("H", Usage.top(data, .five)?.pct)) }
-        if barWeek { picked.append(("W", Usage.top(data, .week)?.pct)) }
-        if barMonth { picked.append(("M", Usage.top(data, .month)?.pct)) }
-        if picked.isEmpty { picked.append(("H", Usage.top(data, .five)?.pct)) }
+        var picked: [(String, String)] = []
+        var risks: [Double] = []
 
-        let risk = picked.compactMap { $0.1 }.contains { $0 >= store.critical }
-        let text = picked
-            .map { "\($0.0) \($0.1.map(Usage.percent) ?? "—")" }
-            .joined(separator: " ")
+        func add(_ label: String, _ period: Period) {
+            let pct = Usage.top(data, period)?.pct
+            picked.append((label, pct.map(Usage.percent) ?? "—"))
+            if let pct { risks.append(pct) }
+        }
+
+        if barFive { add("H", .five) }
+        if barWeek { add("W", .week) }
+        if barMonth { add("M", .month) }
+        // Credits are dollars, not a percentage, so they keep their own format
+        // and never feed the critical-usage triangle.
+        if barCredits {
+            picked.append(("C", data.credits.map { Usage.money($0.available) } ?? "—"))
+        }
+        if picked.isEmpty { add("H", .five) }
+
+        let risk = risks.contains { $0 >= store.critical }
+        let text = picked.map { "\($0.0) \($0.1)" }.joined(separator: " ")
         return (text, risk)
     }
 }
