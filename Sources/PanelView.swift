@@ -87,7 +87,7 @@ struct PanelView: View {
                 summaryCard("Monthly", Usage.top(data, .month), note: resetNote(data.meters?.month))
             }
 
-            creditsCard(data.credits)
+            creditsCards(data.credits)
 
             if let error = store.error {
                 banner("Refresh failed; showing previous data.", detail: error)
@@ -159,40 +159,56 @@ struct PanelView: View {
         return "resets " + clock.string(from: at) + " " + Usage.offset
     }
 
-    // The Go plan's meters are percentages; managed inference is paid from a
-    // separate prepaid balance, so it gets its own track with a dollar figure
-    // instead of a fourth percentage that would not share their scale.
+    // The Go plan's meters are percentages of an allowance; managed inference
+    // is paid from a separate prepaid balance. Two cards keep the two
+    // questions apart: how much is left, and how much of what was bought is
+    // already gone.
     @ViewBuilder
-    private func creditsCard(_ credits: Credits?) -> some View {
+    private func creditsCards(_ credits: Credits?) -> some View {
         if let credits {
-            HStack(alignment: .center, spacing: 10) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Available credits")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.secondary)
-                    Text(Usage.money(credits.available))
-                        .font(.system(size: 20, weight: .bold))
-                    Text(credits.mode.map { "\($0) · managed inference usage" }
-                         ?? "Credits available for managed inference usage")
-                        .font(.system(size: 9))
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                // Under invoicing the ledger balance and what can actually be
-                // spent differ; only show the second figure when they do.
-                if credits.balance != credits.available {
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text("Balance")
-                            .font(.system(size: 9))
-                            .foregroundStyle(.secondary)
-                        Text(Usage.money(credits.balance))
-                            .font(.system(size: 12, weight: .medium))
-                    }
+            HStack(spacing: 10) {
+                creditCard(
+                    "Available credits",
+                    Usage.money(credits.available),
+                    note: credits.mode.map { "\($0) · managed inference usage" }
+                        ?? "Credits available for managed inference usage"
+                )
+
+                if let used = credits.usedFraction,
+                   let spent = credits.used,
+                   let basis = credits.basis {
+                    creditCard(
+                        "Credits used",
+                        Usage.percent(used),
+                        note: "\(Usage.money(spent)) of \(Usage.money(basis)) · \(Usage.percent(1 - used)) free",
+                        color: usageColor(used, warning: store.warning, critical: store.critical)
+                    )
+                } else {
+                    creditCard(
+                        "Credits used",
+                        "—",
+                        note: "No credit purchases found to compare against"
+                    )
                 }
             }
-            .padding(12)
-            .background(RoundedRectangle(cornerRadius: 10).fill(Color.primary.opacity(0.06)))
         }
+    }
+
+    private func creditCard(_ title: String, _ value: String, note: String, color: Color = .primary) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title).font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
+            Text(value)
+                .font(.system(size: 20, weight: .bold))
+                .foregroundStyle(color)
+            Text(note)
+                .font(.system(size: 9))
+                .foregroundStyle(.secondary)
+                .lineLimit(3)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color.primary.opacity(0.06)))
     }
 
     private func summaryNote(_ top: Usage.Top?) -> String? {
@@ -270,6 +286,9 @@ struct PanelView: View {
             detailRow("All time", Usage.money(data.lifetimeTotal) + " · " + Usage.compact(data.lifetimeRequests) + " req")
             if let credits = data.credits {
                 detailRow("Available credits", Usage.money(credits.available))
+                if let used = credits.usedFraction, let spent = credits.used, let basis = credits.basis {
+                    detailRow("Credits used", "\(Usage.percent(used)) · \(Usage.money(spent)) of \(Usage.money(basis))")
+                }
                 if let mode = credits.mode { detailRow("Credits mode", mode) }
             }
             if let meter = data.meters?.five {

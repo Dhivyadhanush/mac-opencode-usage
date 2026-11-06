@@ -127,10 +127,13 @@ struct MenuBarLabel: View {
         if barFive { add("H", .five) }
         if barWeek { add("W", .week) }
         if barMonth { add("M", .month) }
-        // Credits are dollars, not a percentage, so they keep their own format
-        // and never feed the critical-usage triangle.
+        // Credits keep their own format: the used percentage when the purchase
+        // history allows one, otherwise the available balance. They never feed
+        // the critical-usage triangle, which is about Go allowances.
         if barCredits {
-            picked.append(("C", data.credits.map { Usage.money($0.available) } ?? "—"))
+            let used = data.credits?.usedFraction.map(Usage.percent)
+            let available = data.credits.map { Usage.money($0.available) }
+            picked.append(("C", used ?? available ?? "—"))
         }
         if picked.isEmpty { add("H", .five) }
 
